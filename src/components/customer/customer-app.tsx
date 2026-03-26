@@ -5,6 +5,11 @@ import { useAppStore } from '@/lib/app-store';
 import { AppShell } from '@/components/ui/app-shell';
 import { Modal } from '@/components/ui/modal';
 import { ProgressBar } from '@/components/ui/charts';
+import {
+  EditProfileModal, LoyaltyModal, AddressModal, PaymentModal,
+  DietaryModal, NotificationSettingsModal, AccountSettingsModal,
+  PrivacyModal, HelpModal, TermsModal, SignOutModal,
+} from '@/components/customer/profile-modals';
 import { cn, formatCurrency, getStatusColor, formatDate, formatRelativeTime } from '@/lib/utils';
 import { Product, OrderItem } from '@/lib/store';
 import {
@@ -34,6 +39,19 @@ export function CustomerApp() {
   const [cart, setCart] = useState<(OrderItem & { farmerId: string })[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cartBounce, setCartBounce] = useState(false);
+
+  // Profile modal states
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showLoyalty, setShowLoyalty] = useState(false);
+  const [showAddress, setShowAddress] = useState<'add' | 'edit' | null>(null);
+  const [showPayment, setShowPayment] = useState<'add' | 'visa' | 'apple' | null>(null);
+  const [showDietary, setShowDietary] = useState(false);
+  const [showNotifSettings, setShowNotifSettings] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showSignOut, setShowSignOut] = useState(false);
 
   const currentUser = db.users.find((u) => u.id === currentUserId);
   const products = db.products.filter((p) => p.status === 'active');
@@ -354,7 +372,7 @@ export function CustomerApp() {
                     <span className="badge bg-emerald-500/15 text-emerald-400"><Shield className="w-3 h-3 inline mr-0.5" />Verified</span>
                   </div>
                 </div>
-                <button onClick={() => showToast('Edit profile')} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"><Pencil className="w-4 h-4" /></button>
+                <button onClick={() => setShowEditProfile(true)} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"><Pencil className="w-4 h-4" /></button>
               </div>
 
               {/* Stats Row */}
@@ -375,7 +393,7 @@ export function CustomerApp() {
           </div>
 
           {/* Loyalty Progress */}
-          <button onClick={() => showToast('Loyalty tier details')} className="w-full text-left card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up hover:border-white/10 transition-all active:scale-[0.99]" style={{ animationDelay: '100ms' }}>
+          <button onClick={() => setShowLoyalty(true)} className="w-full text-left card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up hover:border-white/10 transition-all active:scale-[0.99]" style={{ animationDelay: '100ms' }}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Gift className="w-4 h-4 text-amber-400" />
@@ -446,10 +464,10 @@ export function CustomerApp() {
                 <MapPin className="w-4 h-4 text-emerald-400" />
                 <span className="text-sm font-semibold text-white">Addresses</span>
               </div>
-              <button onClick={() => showToast('Add new address')} className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"><Plus className="w-3 h-3" />Add</button>
+              <button onClick={() => setShowAddress('add')} className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"><Plus className="w-3 h-3" />Add</button>
             </div>
             {currentUser.address ? (
-              <button onClick={() => showToast('Edit address')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
+              <button onClick={() => setShowAddress('edit')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
                 <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0"><MapPin className="w-5 h-5 text-emerald-400" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -461,7 +479,7 @@ export function CustomerApp() {
                 <Pencil className="w-3.5 h-3.5 text-slate-600" />
               </button>
             ) : (
-              <button onClick={() => showToast('Add your delivery address')} className="w-full py-4 rounded-xl border border-dashed border-white/10 text-sm text-slate-500 hover:text-white hover:border-emerald-500/30 transition-all">
+              <button onClick={() => setShowAddress('add')} className="w-full py-4 rounded-xl border border-dashed border-white/10 text-sm text-slate-500 hover:text-white hover:border-emerald-500/30 transition-all">
                 <Plus className="w-4 h-4 inline mr-1" /> Add delivery address
               </button>
             )}
@@ -474,10 +492,10 @@ export function CustomerApp() {
                 <CreditCard className="w-4 h-4 text-blue-400" />
                 <span className="text-sm font-semibold text-white">Payment Methods</span>
               </div>
-              <button onClick={() => showToast('Add payment method')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"><Plus className="w-3 h-3" />Add</button>
+              <button onClick={() => setShowPayment('add')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"><Plus className="w-3 h-3" />Add</button>
             </div>
             <div className="space-y-2">
-              <button onClick={() => showToast('Manage Visa card')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
+              <button onClick={() => setShowPayment('visa')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
                 <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                   <CreditCard className="w-5 h-5 text-blue-400" />
                 </div>
@@ -490,7 +508,7 @@ export function CustomerApp() {
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-600" />
               </button>
-              <button onClick={() => showToast('Manage Apple Pay')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
+              <button onClick={() => setShowPayment('apple')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
                 <div className="w-10 h-10 rounded-lg bg-slate-500/10 flex items-center justify-center flex-shrink-0">
                   <span className="text-lg">🍎</span>
                 </div>
@@ -510,7 +528,7 @@ export function CustomerApp() {
                 <Leaf className="w-4 h-4 text-green-400" />
                 <span className="text-sm font-semibold text-white">Dietary Preferences</span>
               </div>
-              <button onClick={() => showToast('Edit preferences')} className="text-xs text-green-400 hover:text-green-300">Edit</button>
+              <button onClick={() => setShowDietary(true)} className="text-xs text-green-400 hover:text-green-300">Edit</button>
             </div>
             <div className="flex flex-wrap gap-2">
               {[
@@ -521,7 +539,7 @@ export function CustomerApp() {
                 { label: '🥛 Dairy-Free', active: false },
                 { label: '🍯 Local Honey', active: true },
               ].map((pref) => (
-                <button key={pref.label} onClick={() => showToast(`${pref.label} ${pref.active ? 'removed' : 'added'}`)}
+                <button key={pref.label} onClick={() => setShowDietary(true)}
                   className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-[0.95]',
                     pref.active ? 'bg-green-500/15 text-green-400 border border-green-500/20' : 'bg-surface-900 text-slate-500 border border-white/5 hover:border-white/10')}>
                   {pref.label}
@@ -541,7 +559,7 @@ export function CustomerApp() {
               { label: 'Promotions', desc: 'Deals, new products, seasonal offers', on: true },
               { label: 'Price drops', desc: 'Alerts when saved items go on sale', on: false },
             ].map((n) => (
-              <button key={n.label} onClick={() => showToast(`${n.label} ${n.on ? 'disabled' : 'enabled'}`)}
+              <button key={n.label} onClick={() => setShowNotifSettings(true)}
                 className="w-full flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-all rounded-lg px-1">
                 <div>
                   <div className="text-sm text-white">{n.label}</div>
@@ -575,7 +593,7 @@ export function CustomerApp() {
           </div>
 
           {/* Sign Out */}
-          <button onClick={() => { showToast('Signed out', 'info'); }}
+          <button onClick={() => setShowSignOut(true)}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-red-500/10 text-red-400/70 hover:text-red-400 hover:bg-red-500/5 transition-all animate-fade-in-up active:scale-[0.98]" style={{ animationDelay: '900ms' }}>
             <LogOut className="w-4 h-4" />
             <span className="text-sm font-medium">Sign Out</span>
@@ -662,6 +680,19 @@ export function CustomerApp() {
           </div>
         )}
       </Modal>
+
+      {/* ========== PROFILE WORKFLOW MODALS ========== */}
+      <EditProfileModal open={showEditProfile} onClose={() => setShowEditProfile(false)} />
+      <LoyaltyModal open={showLoyalty} onClose={() => setShowLoyalty(false)} />
+      <AddressModal open={!!showAddress} onClose={() => setShowAddress(null)} editMode={showAddress === 'edit'} />
+      <PaymentModal open={!!showPayment} onClose={() => setShowPayment(null)} mode={showPayment || 'add'} />
+      <DietaryModal open={showDietary} onClose={() => setShowDietary(false)} />
+      <NotificationSettingsModal open={showNotifSettings} onClose={() => setShowNotifSettings(false)} />
+      <AccountSettingsModal open={showAccountSettings} onClose={() => setShowAccountSettings(false)} />
+      <PrivacyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
+      <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+      <TermsModal open={showTerms} onClose={() => setShowTerms(false)} />
+      <SignOutModal open={showSignOut} onClose={() => setShowSignOut(false)} />
     </AppShell>
   );
 }

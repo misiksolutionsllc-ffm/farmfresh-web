@@ -12,6 +12,8 @@ import {
   ChevronRight, ChevronLeft, Shield, BookOpen, FileCheck, Sparkles,
   Upload, Image, Leaf, Award, Flag, GraduationCap, ScrollText, Globe,
   Locate, Search, X, Check, AlertTriangle, Zap, Brain, ArrowRight,
+  Megaphone, CreditCard, Landmark, Crown, Rocket, TrendingUp, Eye,
+  Clock, Truck, MessageSquare, BadgePercent, Target, Gift,
 } from 'lucide-react';
 
 // ============================================================
@@ -30,6 +32,7 @@ const STEPS: { id: OnboardingStep; label: string; icon: React.ReactNode }[] = [
 const navItems = [
   { id: 'orders', label: 'Orders', icon: <ClipboardList className="w-5 h-5" /> },
   { id: 'products', label: 'Products', icon: <Package className="w-5 h-5" /> },
+  { id: 'marketing', label: 'Marketing', icon: <Megaphone className="w-5 h-5" /> },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
   { id: 'profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
 ];
@@ -566,6 +569,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [productPhoto, setProductPhoto] = useState<string | null>(null);
   const [aiDescription, setAiDescription] = useState('');
@@ -720,25 +724,149 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
           {myOrders.length === 0 ? (
             <div className="text-center py-20 animate-fade-in"><span className="text-6xl block mb-4 animate-float">📋</span><p className="text-slate-400">No orders yet — add products to get started!</p></div>
           ) : (
-            myOrders.map((order, i) => (
-              <div key={order.id} className={cn('bg-surface-800/50 border rounded-2xl p-5 transition-all animate-fade-in-up', order.status === 'Pending' ? 'border-amber-500/20' : 'border-white/5')} style={{ animationDelay: `${i * 60}ms` }}>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-slate-500 font-mono">#{order.id.slice(-6).toUpperCase()}</span>
-                  <span className={cn('badge', getStatusColor(order.status))}>{order.status}</span>
+            myOrders.map((order, i) => {
+              const customer = db.users.find((u) => u.id === order.customerId);
+              return (
+                <div key={order.id} onClick={() => setSelectedOrder(order.id)}
+                  className={cn('bg-surface-800/50 border rounded-2xl p-5 transition-all animate-fade-in-up cursor-pointer card-hover', order.status === 'Pending' ? 'border-amber-500/20' : 'border-white/5')}
+                  style={{ animationDelay: `${i * 60}ms` }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <span className="text-xs text-slate-500 font-mono">#{order.id.slice(-6).toUpperCase()}</span>
+                      <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Clock className="w-3 h-3" />{formatDate(order.date)}</div>
+                    </div>
+                    <span className={cn('badge', getStatusColor(order.status))}>{order.status}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-3 h-3 text-slate-500" />
+                    <span className="text-xs text-slate-400">{customer?.name || 'Customer'}</span>
+                  </div>
+                  <div className="flex items-center gap-1 mb-2 flex-wrap">
+                    {order.items.slice(0, 3).map((item) => (
+                      <span key={item.id} className="text-xs bg-surface-900 px-2 py-1 rounded-lg text-slate-300">{item.image?.startsWith?.('data:') ? '📦' : item.image} {item.name} ×{item.qty}</span>
+                    ))}
+                    {order.items.length > 3 && <span className="text-xs text-slate-500">+{order.items.length - 3} more</span>}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                    <span className="font-bold text-white">{formatCurrency(order.fees.subtotal)}</span>
+                    <ChevronRight className="w-4 h-4 text-slate-600" />
+                  </div>
                 </div>
-                {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between text-sm mb-1"><span className="text-slate-300">{item.image} {item.name} × {item.qty}</span><span className="text-slate-400">{formatCurrency(item.price * item.qty)}</span></div>
-                ))}
-                <div className="flex items-center justify-between pt-3 mt-2 border-t border-white/5">
-                  <span className="font-bold text-white">{formatCurrency(order.fees.subtotal)}</span>
-                  {order.status === 'Pending' && <button onClick={() => { dispatch({ type: 'UPDATE_ORDER', payload: { id: order.id, status: 'Processing' } }); showToast('Accepted'); }} className="btn-primary bg-orange-600 text-sm py-2">Accept</button>}
-                  {order.status === 'Processing' && <button onClick={() => { dispatch({ type: 'MARK_READY', id: order.id }); showToast('Ready!'); }} className="btn-primary bg-emerald-600 text-sm py-2"><CheckCircle2 className="w-4 h-4 inline mr-1" />Mark Ready</button>}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
+
+      {/* ===== ORDER DETAIL MODAL ===== */}
+      {(() => {
+        const orderDetail = myOrders.find((o) => o.id === selectedOrder);
+        const orderCustomer = orderDetail ? db.users.find((u) => u.id === orderDetail.customerId) : null;
+        const statusSteps = ['Pending', 'Processing', 'Ready', 'Picked Up', 'Delivered'];
+        const stepIdx = orderDetail ? statusSteps.indexOf(orderDetail.status) : -1;
+        return (
+          <Modal open={!!orderDetail} onClose={() => setSelectedOrder(null)} title={`Order #${orderDetail?.id.slice(-6).toUpperCase() || ''}`}>
+            {orderDetail && (
+              <div className="p-6 space-y-5">
+                {/* Status + Progress */}
+                <div className="flex items-center justify-between">
+                  <span className={cn('badge text-sm', getStatusColor(orderDetail.status))}>{orderDetail.status}</span>
+                  <span className="text-xs text-slate-500">{formatDate(orderDetail.date)}</span>
+                </div>
+                {orderDetail.status !== 'Cancelled' && (
+                  <div className="flex items-center gap-1">
+                    {statusSteps.map((_, si) => (
+                      <div key={si} className={cn('flex-1 h-2 rounded-full transition-all', si <= stepIdx ? 'bg-orange-500' : 'bg-white/5')} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Customer */}
+                <div className="bg-surface-800 rounded-xl p-4">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Customer</div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center"><User className="w-5 h-5 text-emerald-400" /></div>
+                    <div>
+                      <div className="text-sm font-medium text-white">{orderCustomer?.name || 'Customer'}</div>
+                      <div className="text-xs text-slate-500">{orderCustomer?.email || ''}</div>
+                      {orderCustomer?.phone && <div className="text-xs text-slate-500">{orderCustomer.phone}</div>}
+                    </div>
+                  </div>
+                  {orderCustomer?.address && (
+                    <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-400">
+                      <MapPin className="w-3 h-3" />{orderCustomer.address.street}, {orderCustomer.address.city}, {orderCustomer.address.state}
+                    </div>
+                  )}
+                  {orderDetail.instructions && (
+                    <div className="mt-2 px-3 py-2 bg-surface-900 rounded-lg text-xs text-slate-400">
+                      <MessageSquare className="w-3 h-3 inline mr-1 text-slate-500" />"{orderDetail.instructions}"
+                    </div>
+                  )}
+                </div>
+
+                {/* Items */}
+                <div>
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Items ({orderDetail.items.length})</div>
+                  {orderDetail.items.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
+                      <div className="w-10 h-10 bg-surface-800 rounded-lg flex items-center justify-center overflow-hidden">
+                        {item.image?.startsWith?.('data:') ? <img src={item.image} className="w-full h-full object-cover" /> : <span className="text-lg">{item.image}</span>}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm text-white">{item.name}</div>
+                        <div className="text-xs text-slate-500">Qty: {item.qty} × {formatCurrency(item.price)}</div>
+                      </div>
+                      <span className="text-sm font-bold text-white">{formatCurrency(item.price * item.qty)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Fees breakdown */}
+                <div className="bg-surface-800 rounded-xl p-4 space-y-2">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Financial Details</div>
+                  {[
+                    ['Subtotal', orderDetail.fees.subtotal],
+                    ['Delivery fee', orderDetail.fees.delivery],
+                    ['Platform fee', orderDetail.fees.platform],
+                    ['Tax', orderDetail.fees.tax],
+                    ['Tip', orderDetail.fees.tip],
+                    ...(orderDetail.fees.discount > 0 ? [['Discount', -orderDetail.fees.discount]] : []),
+                  ].map(([label, val]) => (
+                    <div key={label as string} className="flex justify-between text-xs">
+                      <span className="text-slate-400">{label}</span>
+                      <span className={cn('font-mono', (val as number) < 0 ? 'text-red-400' : 'text-white')}>{formatCurrency(val as number)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 border-t border-white/5 text-sm">
+                    <span className="text-white font-semibold">Total</span>
+                    <span className="text-orange-400 font-bold">{formatCurrency(orderDetail.total)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-emerald-400">Your earnings</span>
+                    <span className="text-emerald-400 font-bold font-mono">{formatCurrency(orderDetail.fees.subtotal)}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  {orderDetail.status === 'Pending' && (
+                    <button onClick={() => { dispatch({ type: 'UPDATE_ORDER', payload: { id: orderDetail.id, status: 'Processing' } }); showToast('Accepted'); setSelectedOrder(null); }}
+                      className="flex-1 btn-primary bg-orange-600 text-sm">Accept Order</button>
+                  )}
+                  {orderDetail.status === 'Processing' && (
+                    <button onClick={() => { dispatch({ type: 'MARK_READY', id: orderDetail.id }); showToast('Ready for pickup!'); setSelectedOrder(null); }}
+                      className="flex-1 btn-primary bg-emerald-600 text-sm flex items-center justify-center gap-1"><CheckCircle2 className="w-4 h-4" /> Mark Ready</button>
+                  )}
+                  {(orderDetail.status === 'Pending' || orderDetail.status === 'Processing') && (
+                    <button onClick={() => { dispatch({ type: 'UPDATE_ORDER', payload: { id: orderDetail.id, status: 'Cancelled' } }); showToast('Order rejected', 'error'); setSelectedOrder(null); }}
+                      className="px-4 py-3 rounded-2xl border border-red-500/20 text-red-400 text-sm hover:bg-red-500/5">Reject</button>
+                  )}
+                </div>
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
 
       {/* ===== PRODUCTS ===== */}
       {activeTab === 'products' && (
@@ -861,6 +989,86 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
         );
       })()}
 
+      {/* ===== MARKETING ===== */}
+      {activeTab === 'marketing' && (
+        <div className="space-y-6 pb-24 lg:pb-4">
+          <div className="animate-fade-in">
+            <h2 className="text-xl font-display font-bold text-white">Marketing Tools</h2>
+            <p className="text-sm text-slate-400 mt-1">Boost your sales with premium features</p>
+          </div>
+
+          {/* Subscription Tiers */}
+          <div className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">📋 Subscription Plans</div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              {[
+                { name: 'Starter', price: 0, period: 'Free forever', color: '#64748B', features: ['Up to 10 products', 'Basic storefront', 'Standard listing', 'Email support', 'Basic analytics'], current: true },
+                { name: 'Growth', price: 300, period: '/month', color: '#EA580C', popular: true, features: ['Unlimited products', 'Featured storefront badge', 'Priority listing in search', 'AI product descriptions', 'Advanced analytics & reports', 'Promotional tools', 'Priority support', 'Custom farm page URL'] },
+                { name: 'Enterprise', price: 799, period: '/month', color: '#F59E0B', features: ['Everything in Growth', 'Dedicated account manager', 'White-label delivery', 'API access', 'Multi-location support', 'Custom integrations', 'Bulk upload tools', 'Revenue sharing optimization'] },
+              ].map((tier, i) => (
+                <div key={tier.name} className={cn('card p-5 relative overflow-hidden animate-fade-in-up', tier.popular && 'border-orange-500/30')} style={{ animationDelay: `${(i + 1) * 80}ms` }}>
+                  {tier.popular && (
+                    <div className="absolute top-0 right-0 bg-orange-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl">RECOMMENDED</div>
+                  )}
+                  <div className="flex items-center gap-2 mb-3">
+                    {tier.price === 0 ? <Leaf className="w-5 h-5" style={{ color: tier.color }} /> : tier.popular ? <Rocket className="w-5 h-5" style={{ color: tier.color }} /> : <Crown className="w-5 h-5" style={{ color: tier.color }} />}
+                    <span className="font-bold text-white">{tier.name}</span>
+                  </div>
+                  <div className="mb-4">
+                    <span className="text-3xl font-bold text-white">{tier.price === 0 ? 'Free' : `$${tier.price}`}</span>
+                    <span className="text-sm text-slate-500 ml-1">{tier.period}</span>
+                  </div>
+                  <ul className="space-y-2 mb-5">
+                    {tier.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-xs">
+                        <Check className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: tier.color }} />
+                        <span className="text-slate-300">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button className={cn('w-full btn-primary text-sm', tier.current ? 'bg-white/5 text-slate-400 cursor-default' : tier.popular ? 'bg-orange-600' : 'bg-white/10 text-white')}>
+                    {tier.current ? '✓ Current Plan' : tier.popular ? 'Upgrade to Growth' : 'Contact Sales'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Marketing Features to Purchase */}
+          <div className="animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">🚀 Boost Features (À la carte)</div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {[
+                { name: 'Featured Product Badge', price: 49, period: '/month per product', icon: '⭐', desc: 'Gold "Featured" badge on product cards. 3x more visibility in search results.', color: '#F59E0B' },
+                { name: 'Homepage Banner Slot', price: 199, period: '/week', icon: '🖼️', desc: 'Your farm featured on the Consumer app homepage banner. Avg. 5,000 impressions/day.', color: '#8B5CF6' },
+                { name: 'Push Notification Campaign', price: 79, period: '/blast', icon: '🔔', desc: 'Send a push notification to all customers in your delivery area about your products.', color: '#3B82F6' },
+                { name: 'Social Media Promotion', price: 149, period: '/campaign', icon: '📱', desc: 'Professional social media post created by AI + promoted across our channels.', color: '#EC4899' },
+                { name: 'Seasonal Promo Pack', price: 99, period: '/month', icon: '🎁', desc: 'Auto-generated promo codes, seasonal banners, and limited-time offers for your store.', color: '#10B981' },
+                { name: 'Analytics Pro Report', price: 29, period: '/month', icon: '📊', desc: 'Deep analytics: customer demographics, purchase patterns, optimal pricing, demand forecast.', color: '#06B6D4' },
+                { name: 'Priority Delivery Match', price: 59, period: '/month', icon: '🚚', desc: 'Your orders get matched to drivers first. 30% faster delivery times on average.', color: '#EA580C' },
+                { name: 'AI Product Photography', price: 19, period: '/product', icon: '📸', desc: 'AI-enhanced product photos with professional backgrounds and lighting adjustment.', color: '#F43F5E' },
+              ].map((feat, i) => (
+                <div key={feat.name} className="card p-4 flex gap-4 hover:border-white/10 transition-all animate-fade-in-up" style={{ animationDelay: `${(i + 5) * 50}ms` }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl" style={{ backgroundColor: feat.color + '12' }}>
+                    {feat.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white">{feat.name}</div>
+                    <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{feat.desc}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-sm font-bold text-white">${feat.price}<span className="text-xs text-slate-500 font-normal ml-0.5">{feat.period}</span></span>
+                      <button onClick={() => showToast(`${feat.name} activated! 🚀`)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:brightness-110" style={{ backgroundColor: feat.color + '20', color: feat.color }}>
+                        Activate
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ===== ANALYTICS ===== */}
       {activeTab === 'analytics' && (
         <div className="space-y-4 pb-24 lg:pb-4 animate-fade-in">
@@ -884,19 +1092,141 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
 
       {/* ===== PROFILE ===== */}
       {activeTab === 'profile' && (
-        <div className="max-w-2xl mx-auto space-y-6 pb-24 lg:pb-4 animate-fade-in">
-          <div className="text-center bg-gradient-to-br from-orange-600/10 to-surface-800/30 border border-white/5 rounded-3xl p-8">
+        <div className="max-w-2xl mx-auto space-y-5 pb-24 lg:pb-4">
+          {/* Farm Info Card */}
+          <div className="text-center bg-gradient-to-br from-orange-600/10 to-surface-800/30 border border-white/5 rounded-3xl p-6 animate-fade-in">
             <div className="w-20 h-20 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
               <span className="text-3xl">🌾</span>
             </div>
             <h2 className="text-xl font-bold text-white">{farmer.businessName || farmer.name}</h2>
             <p className="text-sm text-slate-400">{farmer.name}</p>
             <p className="text-sm text-slate-500 mt-1">{farmer.email}</p>
-            {farmer.address && <p className="text-xs text-slate-500 mt-2"><MapPin className="w-3 h-3 inline mr-1" />{farmer.address.street}, {farmer.address.city}, {farmer.address.state}</p>}
+            {farmer.phone && <p className="text-xs text-slate-500 mt-1"><Phone className="w-3 h-3 inline mr-1" />{farmer.phone}</p>}
+            {farmer.address && <p className="text-xs text-slate-500 mt-1"><MapPin className="w-3 h-3 inline mr-1" />{farmer.address.street}, {farmer.address.city}, {farmer.address.state} {farmer.address.zip}</p>}
             <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <Shield className="w-3 h-3 text-emerald-400" />
               <span className="text-xs text-emerald-400 font-semibold">Verified Farmer American Hero</span>
             </div>
+          </div>
+
+          {/* Earnings & Payout */}
+          <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">💰 Earnings & Payouts</div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-surface-800 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-emerald-400">{formatCurrency(totalRevenue)}</div>
+                <div className="text-[10px] text-slate-500">Total Revenue</div>
+              </div>
+              <div className="bg-surface-800 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-white">{formatCurrency(totalRevenue * 0.85)}</div>
+                <div className="text-[10px] text-slate-500">Available</div>
+              </div>
+              <div className="bg-surface-800 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-amber-400">{formatCurrency(totalRevenue * 0.15)}</div>
+                <div className="text-[10px] text-slate-500">Processing</div>
+              </div>
+            </div>
+            <button onClick={() => showToast('Payout initiated! Funds will arrive in 1-3 business days')}
+              className="w-full btn-primary bg-emerald-600 text-sm flex items-center justify-center gap-2">
+              <DollarSign className="w-4 h-4" /> Withdraw to Bank
+            </button>
+          </div>
+
+          {/* Bank Account */}
+          <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">🏦 Bank Account</div>
+              <button onClick={() => showToast('Bank account settings opened')} className="text-xs text-orange-400 hover:text-orange-300">Edit</button>
+            </div>
+            <div className="bg-surface-800 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center"><Landmark className="w-6 h-6 text-blue-400" /></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-white">Chase Bank</div>
+                  <div className="text-xs text-slate-500">Checking •••• 4821</div>
+                  <div className="text-xs text-slate-500">{farmer.name}</div>
+                </div>
+                <span className="badge bg-emerald-500/20 text-emerald-400">Verified</span>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => showToast('Add new bank account')} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 text-sm text-slate-300 hover:bg-white/10 transition-all text-center">
+                <Plus className="w-3 h-3 inline mr-1" /> Add Account
+              </button>
+              <button onClick={() => showToast('Manage payment methods')} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 text-sm text-slate-300 hover:bg-white/10 transition-all text-center">
+                <CreditCard className="w-3 h-3 inline mr-1" /> Cards
+              </button>
+            </div>
+          </div>
+
+          {/* Active Subscription */}
+          <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">⭐ Subscription</div>
+              <button onClick={() => setActiveTab('marketing')} className="text-xs text-orange-400 hover:text-orange-300">Upgrade</button>
+            </div>
+            <div className="bg-gradient-to-br from-orange-500/5 to-surface-800 border border-orange-500/10 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center"><Rocket className="w-5 h-5 text-orange-400" /></div>
+                <div>
+                  <div className="text-sm font-bold text-white">Growth Plan</div>
+                  <div className="text-xs text-slate-500">$300/month • Renews Apr 26</div>
+                </div>
+                <span className="badge bg-emerald-500/20 text-emerald-400 ml-auto">Active</span>
+              </div>
+              <div className="space-y-1.5">
+                {['Unlimited products', 'Featured storefront', 'Priority listing', 'AI descriptions', 'Advanced analytics'].map((f) => (
+                  <div key={f} className="flex items-center gap-2 text-xs text-slate-300">
+                    <Check className="w-3 h-3 text-orange-400" />{f}
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => showToast('Payment method updated')} className="flex-1 px-3 py-2 rounded-lg bg-white/5 text-xs text-slate-300 hover:bg-white/10 transition-all">
+                  <CreditCard className="w-3 h-3 inline mr-1" /> Update Payment
+                </button>
+                <button onClick={() => showToast('Contact support to cancel', 'info')} className="px-3 py-2 rounded-lg text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/5 transition-all">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Payout History */}
+          <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">📄 Recent Payouts</div>
+            {[
+              { date: 'Mar 15, 2026', amount: 842.50, status: 'Completed', method: 'Bank Transfer' },
+              { date: 'Mar 1, 2026', amount: 1256.00, status: 'Completed', method: 'Bank Transfer' },
+              { date: 'Feb 15, 2026', amount: 673.25, status: 'Completed', method: 'Bank Transfer' },
+            ].map((p, i) => (
+              <div key={i} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
+                <div>
+                  <div className="text-sm text-white">{p.date}</div>
+                  <div className="text-xs text-slate-500">{p.method}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-emerald-400">+{formatCurrency(p.amount)}</div>
+                  <span className="badge bg-emerald-500/15 text-emerald-400">{p.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Documents & Compliance */}
+          <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '500ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">📋 Documents & Compliance</div>
+            {(farmer.documents || []).map((doc, i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                <div className="flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm text-slate-300">{doc.type}</span>
+                </div>
+                <span className={cn('badge', doc.status === 'approved' ? 'bg-emerald-500/15 text-emerald-400' : doc.status === 'pending' ? 'bg-amber-500/15 text-amber-400' : 'bg-red-500/15 text-red-400')}>
+                  {doc.status}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}

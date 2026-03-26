@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAppStore } from '@/lib/app-store';
 import { AppShell } from '@/components/ui/app-shell';
 import { MiniStat, BarChart, ProgressBar, Sparkline } from '@/components/ui/charts';
+import { LiveMap, DriverMapView } from '@/components/ui/live-map';
 import { cn, formatCurrency, getStatusColor, formatDate } from '@/lib/utils';
 import { Gauge, Package, DollarSign, User, Map, Power, Navigation, Star, Zap, Banknote, Clock, MapPin, TrendingUp, ChevronRight } from 'lucide-react';
 
@@ -157,9 +158,96 @@ export function DriverApp() {
       {/* ========== MAP TAB ========== */}
       {activeTab === 'map' && (
         <div className="space-y-4 pb-24 lg:pb-4 animate-fade-in">
-          <div className="bg-surface-800/50 border border-white/5 rounded-2xl aspect-video flex items-center justify-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-surface-900" />
-            <div className="relative text-center"><Map className="w-12 h-12 text-blue-500/30 mx-auto mb-3" /><p className="text-slate-400">Map integration ready</p><p className="text-xs text-slate-600 mt-1">Google Maps / Mapbox</p></div>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-display font-bold text-white">Navigation</h2>
+            <div className="flex items-center gap-2">
+              <div className={cn('status-dot', driver.online ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600')} />
+              <span className="text-xs text-slate-400">{driver.online ? 'Online' : 'Offline'}</span>
+            </div>
+          </div>
+
+          {/* Active delivery map */}
+          {activeDelivery ? (
+            <>
+              <DriverMapView
+                pickupLat={26.6620 + Math.random() * 0.01}
+                pickupLng={-80.2710 + Math.random() * 0.01}
+                pickupLabel={activeDelivery.pickup}
+                dropoffLat={26.6540 + Math.random() * 0.01}
+                dropoffLng={-80.2620 + Math.random() * 0.01}
+                dropoffLabel={activeDelivery.dropoff}
+              />
+              {/* Delivery info card below map */}
+              <div className="bg-surface-800/50 border border-white/5 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-blue-400" />
+                    <span className="font-semibold text-white text-sm">Active Route</span>
+                  </div>
+                  <span className={cn('badge', getStatusColor(activeDelivery.status))}>{activeDelivery.status}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-surface-900 rounded-xl p-3">
+                    <div className="text-lg font-bold text-white">{activeDelivery.distance}</div>
+                    <div className="text-[10px] text-slate-500">Distance</div>
+                  </div>
+                  <div className="bg-surface-900 rounded-xl p-3">
+                    <div className="text-lg font-bold text-blue-400">~12 min</div>
+                    <div className="text-[10px] text-slate-500">ETA</div>
+                  </div>
+                  <div className="bg-surface-900 rounded-xl p-3">
+                    <div className="text-lg font-bold text-emerald-400">{formatCurrency(activeDelivery.pay)}</div>
+                    <div className="text-[10px] text-slate-500">Earnings</div>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  {activeDelivery.status === 'Accepted' && (
+                    <button onClick={() => { dispatch({ type: 'PICKUP_JOB', id: activeDelivery.id }); showToast('Picked up!'); }}
+                      className="flex-1 btn-primary bg-blue-600 text-sm py-2.5">Confirm Pickup</button>
+                  )}
+                  {activeDelivery.status === 'Picked Up' && (
+                    <button onClick={() => { dispatch({ type: 'COMPLETE_JOB', id: activeDelivery.id }); showToast('Delivery complete! 💰'); }}
+                      className="flex-1 btn-primary bg-emerald-600 text-sm py-2.5">Complete Delivery</button>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Idle map showing area and merchants */}
+              <LiveMap
+                markers={[
+                  ...db.users.filter((u) => u.role === 'farmer' && u.address).map((m) => ({
+                    id: m.id, lat: 26.655 + Math.random() * 0.02, lng: -80.275 + Math.random() * 0.02,
+                    type: 'merchant' as const, label: m.name, sublabel: 'Merchant',
+                  })),
+                ]}
+                height="350px"
+                showDriverLocation
+              />
+              <div className="bg-surface-800/50 border border-white/5 rounded-2xl p-4 text-center">
+                <p className="text-slate-400 text-sm">
+                  {driver.online
+                    ? '🟢 Waiting for deliveries — routes appear when you accept a job'
+                    : '⚫ Go online to see available delivery routes'}
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Map legend */}
+          <div className="flex flex-wrap gap-4 px-1">
+            {[
+              { color: '#2563EB', label: 'You' },
+              { color: '#8B5CF6', label: 'Pickup' },
+              { color: '#10B981', label: 'Dropoff' },
+              { color: '#EA580C', label: 'Merchant' },
+            ].map((l) => (
+              <div key={l.label} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: l.color }} />
+                <span className="text-xs text-slate-500">{l.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

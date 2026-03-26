@@ -5,11 +5,13 @@ import { useAppStore } from '@/lib/app-store';
 import { AppShell } from '@/components/ui/app-shell';
 import { ConfirmDialog } from '@/components/ui/modal';
 import { MiniStat, DonutChart, BarChart, ProgressBar, Sparkline } from '@/components/ui/charts';
+import { GodModeMapView } from '@/components/ui/live-map';
 import { cn, formatCurrency, getStatusColor, formatDate, getRoleLabel } from '@/lib/utils';
-import { BarChart3, Users, Settings, Database, Shield, Activity, DollarSign, Package, Truck, Store, ShoppingCart, UserCheck, UserX, AlertTriangle, Trash2, ToggleLeft, ToggleRight, Eye, Zap, TrendingUp } from 'lucide-react';
+import { BarChart3, Users, Settings, Database, Shield, Activity, DollarSign, Package, Truck, Store, ShoppingCart, UserCheck, UserX, AlertTriangle, Trash2, ToggleLeft, ToggleRight, Eye, Zap, TrendingUp, MapPin } from 'lucide-react';
 
 const navItems = [
   { id: 'overview', label: 'Overview', icon: <BarChart3 className="w-5 h-5" /> },
+  { id: 'livemap', label: 'Live Map', icon: <MapPin className="w-5 h-5" /> },
   { id: 'users', label: 'Users', icon: <Users className="w-5 h-5" /> },
   { id: 'orders', label: 'Orders', icon: <Package className="w-5 h-5" /> },
   { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
@@ -107,6 +109,102 @@ export function AdminApp() {
               <div key={order.id} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0 animate-fade-in-up" style={{ animationDelay: `${800 + i * 50}ms` }}>
                 <div><span className="text-xs text-slate-500 font-mono">#{order.id.slice(-6)}</span><div className="text-sm text-white">{order.items.length} items</div></div>
                 <div className="flex items-center gap-3"><span className={cn('badge', getStatusColor(order.status))}>{order.status}</span><span className="text-sm font-bold text-white">{formatCurrency(order.total)}</span></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========== LIVE MAP ========== */}
+      {activeTab === 'livemap' && (
+        <div className="space-y-5 pb-24 lg:pb-4">
+          <div className="flex items-center justify-between animate-fade-in">
+            <h2 className="text-xl font-display font-bold text-white">Live Map</h2>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <div className="status-dot bg-blue-500 animate-pulse" />
+                <span className="text-xs text-slate-400">{db.users.filter((u) => u.role === 'driver' && u.online).length} drivers online</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="status-dot bg-orange-500" />
+                <span className="text-xs text-slate-400">{db.users.filter((u) => u.role === 'farmer').length} merchants</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Full map */}
+          <GodModeMapView
+            drivers={db.users.filter((u) => u.role === 'driver').map((d) => {
+              const loc = db.driverLocations.find((l) => l.driverId === d.id);
+              return {
+                id: d.id,
+                name: d.name,
+                lat: loc?.latitude || 26.655 + Math.random() * 0.025,
+                lng: loc?.longitude || -80.275 + Math.random() * 0.025,
+                online: d.online,
+              };
+            })}
+            merchants={db.users.filter((u) => u.role === 'farmer').map((m) => ({
+              id: m.id,
+              name: m.name,
+              lat: m.address ? 26.66 + Math.random() * 0.015 : 26.655,
+              lng: m.address ? -80.27 + Math.random() * 0.015 : -80.268,
+            }))}
+            deliveries={db.deliveries.map((d) => ({
+              id: d.id,
+              pickupLat: 26.66 + Math.random() * 0.02,
+              pickupLng: -80.275 + Math.random() * 0.02,
+              dropoffLat: 26.65 + Math.random() * 0.02,
+              dropoffLng: -80.260 + Math.random() * 0.02,
+              status: d.status,
+            }))}
+          />
+
+          {/* Stats under map */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: 'Active Deliveries', value: db.deliveries.filter((d) => d.status !== 'Delivered').length, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+              { label: 'Online Drivers', value: db.users.filter((u) => u.role === 'driver' && u.online).length, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+              { label: 'Pending Orders', value: db.orders.filter((o) => o.status === 'Pending').length, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+              { label: 'Merchants', value: db.users.filter((u) => u.role === 'farmer').length, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+            ].map((s, i) => (
+              <div key={s.label} className={cn('rounded-2xl p-4 border border-white/5 animate-fade-in-up', s.bg)} style={{ animationDelay: `${i * 60}ms` }}>
+                <div className={cn('text-2xl font-bold', s.color)}>{s.value}</div>
+                <div className="text-xs text-slate-500 mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Active delivery list */}
+          {db.deliveries.filter((d) => d.status !== 'Delivered').length > 0 && (
+            <div className="bg-surface-800/50 border border-white/5 rounded-2xl p-5 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+              <h3 className="font-semibold text-white mb-3">Active Deliveries</h3>
+              {db.deliveries.filter((d) => d.status !== 'Delivered').map((d, i) => (
+                <div key={d.id} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
+                  <div>
+                    <span className="text-xs text-slate-500 font-mono">#{d.id.slice(-6)}</span>
+                    <div className="text-sm text-slate-300">{d.pickup} → {d.dropoff}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('badge', getStatusColor(d.status))}>{d.status}</span>
+                    <span className="text-sm font-bold text-white">{formatCurrency(d.pay)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Map legend */}
+          <div className="flex flex-wrap gap-4 px-1">
+            {[
+              { color: '#2563EB', label: 'Drivers (online)', dot: true },
+              { color: '#EA580C', label: 'Merchants' },
+              { color: '#F59E0B', label: 'Pending route' },
+              { color: '#3B82F6', label: 'Active route' },
+            ].map((l) => (
+              <div key={l.label} className="flex items-center gap-1.5">
+                <div className={cn('w-3 h-3 rounded-full', l.dot && 'animate-pulse')} style={{ backgroundColor: l.color }} />
+                <span className="text-xs text-slate-500">{l.label}</span>
               </div>
             ))}
           </div>

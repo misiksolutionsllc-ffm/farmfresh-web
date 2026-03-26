@@ -570,50 +570,98 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
   const [form, setForm] = useState({ name: '', price: '', unit: 'lb', category: 'Vegetables', stock: '', description: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [aiRejection, setAiRejection] = useState('');
+
   const farmer = db.users.find((u) => u.id === currentUserId);
   const myProducts = db.products.filter((p) => p.farmerId === currentUserId);
   const myOrders = db.orders.filter((o) => o.merchantId === currentUserId);
   const totalRevenue = myOrders.filter((o) => o.status === 'Delivered').reduce((sum, o) => sum + o.fees.subtotal, 0);
 
-  // Simulate AI photo recognition
+  // Get API key from localStorage (same as Mission Control AI Agent)
+  const getApiKey = () => typeof window !== 'undefined' ? localStorage.getItem('ff_anthropic_key') || '' : '';
+
+  // Real AI photo recognition via Claude Vision
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAiRejection('');
 
-    // Create preview
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setProductPhoto(ev.target?.result as string);
-      // Simulate AI processing
+    reader.onload = async (ev) => {
+      const base64Full = ev.target?.result as string;
+      setProductPhoto(base64Full);
       setAiProcessing(true);
-      setTimeout(() => {
-        // AI generates product info based on "detected" item
-        const aiProducts = [
-          { name: 'Organic Roma Tomatoes', desc: 'Vine-ripened Roma tomatoes, naturally grown without pesticides. Perfect for sauces, salads, and cooking. Rich in lycopene and vitamins.', cat: 'Vegetables', unit: 'lb', price: '3.99' },
-          { name: 'Fresh Honeycrisp Apples', desc: 'Crisp and sweet Honeycrisp apples, hand-picked at peak ripeness. No wax coating, no pesticides — just pure natural goodness.', cat: 'Fruits', unit: 'lb', price: '4.49' },
-          { name: 'Free-Range Farm Eggs', desc: 'Pasture-raised eggs from free-roaming hens fed an all-natural diet. Rich, golden yolks with superior nutrition and taste.', cat: 'Dairy', unit: 'doz', price: '6.99' },
-        ];
-        const picked = aiProducts[Math.floor(Math.random() * aiProducts.length)];
-        setForm((prev) => ({ ...prev, name: picked.name, description: picked.desc, category: picked.cat, unit: picked.unit, price: picked.price }));
-        setAiDescription(picked.desc);
-        setAiProcessing(false);
-        showToast('AI detected product and generated description!');
-      }, 2000);
+
+      try {
+        const mediaType = file.type || 'image/jpeg';
+        const response = await fetch('/api/analyze-product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: base64Full,
+            mediaType,
+            apiKey: getApiKey(),
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+          showToast(result.error, 'error');
+          setAiProcessing(false);
+          return;
+        }
+
+        if (!result.isFood) {
+          // Not a food product — show rejection
+          setAiRejection(result.rejection || 'This does not appear to be a food product. FarmFresh Hub only accepts natural food items.');
+          showToast('Not a food product — please upload a photo of your farm product', 'error');
+          setAiProcessing(false);
+          return;
+        }
+
+        // AI recognized a food product — fill form
+        setForm((prev) => ({
+          ...prev,
+          name: result.name || prev.name,
+          description: result.description || prev.description,
+          category: result.category || prev.category,
+          unit: result.suggestedUnit || prev.unit,
+          price: result.suggestedPrice?.toString() || prev.price,
+        }));
+        setAiDescription(result.description || '');
+        showToast(`AI detected: ${result.name} (${result.confidence} confidence)`);
+      } catch (error) {
+        showToast('AI analysis failed — fill in details manually', 'info');
+      }
+
+      setAiProcessing(false);
     };
     reader.readAsDataURL(file);
   };
 
   const saveProduct = () => {
     if (!form.name || !form.price) return;
+    // Store product photo base64 as the image (instead of emoji)
     dispatch({
       type: 'ADD_PRODUCT',
-      payload: { farmerId: currentUserId!, name: form.name, price: parseFloat(form.price), unit: form.unit, category: form.category, stock: parseInt(form.stock) || 50, description: form.description },
+      payload: {
+        farmerId: currentUserId!,
+        name: form.name,
+        price: parseFloat(form.price),
+        unit: form.unit,
+        category: form.category,
+        stock: parseInt(form.stock) || 50,
+        description: form.description,
+        image: productPhoto || '🥬', // Use uploaded photo or fallback to emoji
+      },
     });
     showToast('Product published to marketplace! 🎉');
     setShowAddProduct(false);
     setForm({ name: '', price: '', unit: 'lb', category: 'Vegetables', stock: '', description: '' });
     setProductPhoto(null);
     setAiDescription('');
+    setAiRejection('');
   };
 
   if (!farmer) return null;
@@ -661,7 +709,11 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
           </div>
           {myProducts.map((p, i) => (
             <div key={p.id} className="bg-surface-800/50 border border-white/5 rounded-2xl p-4 flex items-center gap-4 card-hover animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
-              <div className="w-14 h-14 bg-surface-800 rounded-xl flex items-center justify-center text-3xl flex-shrink-0">{p.image}</div>
+              {p.image.startsWith('data:') ? (
+                <img src={p.image} alt={p.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-14 h-14 bg-surface-800 rounded-xl flex items-center justify-center text-3xl flex-shrink-0">{p.image}</div>
+              )}
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-white text-sm truncate">{p.name}</h3>
                 <span className="text-sm font-bold text-orange-400">{formatCurrency(p.price)}/{p.unit}</span>
@@ -750,6 +802,14 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
             <div className="px-3 py-2 rounded-xl bg-purple-500/5 border border-purple-500/10">
               <div className="flex items-center gap-1.5 mb-1"><Brain className="w-3 h-3 text-purple-400" /><span className="text-[10px] text-purple-400 font-bold">AI GENERATED</span></div>
               <p className="text-xs text-slate-300">{aiDescription}</p>
+            </div>
+          )}
+
+          {aiRejection && (
+            <div className="px-3 py-2 rounded-xl bg-red-500/5 border border-red-500/20">
+              <div className="flex items-center gap-1.5 mb-1"><AlertTriangle className="w-3 h-3 text-red-400" /><span className="text-[10px] text-red-400 font-bold">NOT ALLOWED</span></div>
+              <p className="text-xs text-red-300">{aiRejection}</p>
+              <p className="text-[10px] text-slate-500 mt-1">Please upload a photo of a natural food product to continue.</p>
             </div>
           )}
 

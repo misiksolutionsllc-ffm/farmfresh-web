@@ -128,7 +128,11 @@ export function CustomerApp() {
                   {/* Image */}
                   <div className="relative aspect-square flex items-center justify-center bg-gradient-to-br from-surface-800 to-surface-900 cursor-pointer overflow-hidden"
                     onClick={() => setSelectedProduct(product)}>
-                    <span className="text-6xl product-img">{product.image}</span>
+                    {product.image.startsWith('data:') ? (
+                      <img src={product.image} alt={product.name} className="w-full h-full object-cover product-img" />
+                    ) : (
+                      <span className="text-6xl product-img">{product.image}</span>
+                    )}
                     {/* Badges */}
                     <div className="absolute top-2 left-2 flex flex-col gap-1">
                       {product.organic && (
@@ -206,7 +210,9 @@ export function CustomerApp() {
               <div className="space-y-3">
                 {cart.map((item, i) => (
                   <div key={item.id} className="flex items-center gap-4 p-4 bg-surface-800/50 border border-white/5 rounded-2xl animate-fade-in-up hover:border-white/10 transition-all" style={{ animationDelay: `${i * 60}ms` }}>
-                    <div className="w-14 h-14 bg-gradient-to-br from-surface-800 to-surface-900 rounded-xl flex items-center justify-center text-2xl">{item.image}</div>
+                    <div className="w-14 h-14 bg-gradient-to-br from-surface-800 to-surface-900 rounded-xl flex items-center justify-center text-2xl overflow-hidden">
+                      {item.image.startsWith('data:') ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : item.image}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-white text-sm truncate">{item.name}</h3>
                       <p className="text-emerald-400 font-bold text-sm">{formatCurrency(item.price * item.qty)}</p>
@@ -278,7 +284,7 @@ export function CustomerApp() {
                     <div className="flex flex-wrap gap-2 mb-3">
                       {order.items.map((item) => (
                         <div key={item.id} className="flex items-center gap-2 px-3 py-1.5 bg-surface-900 rounded-lg">
-                          <span>{item.image}</span>
+                          {item.image.startsWith('data:') ? <img src={item.image} alt="" className="w-5 h-5 rounded object-cover" /> : <span>{item.image}</span>}
                           <span className="text-xs text-slate-300">{item.name} × {item.qty}</span>
                         </div>
                       ))}
@@ -309,7 +315,11 @@ export function CustomerApp() {
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                 {favProducts.map((p, i) => (
                   <div key={p.id} className="bg-surface-800/50 border border-white/5 rounded-2xl p-4 text-center card-hover animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
-                    <span className="text-4xl block mb-2">{p.image}</span>
+                    {p.image.startsWith('data:') ? (
+                      <img src={p.image} alt={p.name} className="w-16 h-16 rounded-xl object-cover mx-auto mb-2" />
+                    ) : (
+                      <span className="text-4xl block mb-2">{p.image}</span>
+                    )}
                     <h3 className="text-sm font-semibold text-white truncate">{p.name}</h3>
                     <p className="text-emerald-400 font-bold mt-1">{formatCurrency(p.price)}</p>
                     <button onClick={() => addToCart(p)} className="w-full mt-3 py-2 text-xs font-medium rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">Add to Cart</button>
@@ -400,7 +410,11 @@ export function CustomerApp() {
         {selectedProduct && (
           <div>
             <div className="aspect-[4/3] bg-gradient-to-br from-surface-800 to-surface-900 flex items-center justify-center">
-              <span className="text-[100px] animate-emoji-pop">{selectedProduct.image}</span>
+              {selectedProduct.image.startsWith('data:') ? (
+                <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover animate-scale-in" />
+              ) : (
+                <span className="text-[100px] animate-emoji-pop">{selectedProduct.image}</span>
+              )}
             </div>
             <div className="p-6 space-y-4">
               <p className="text-slate-400">{selectedProduct.description}</p>

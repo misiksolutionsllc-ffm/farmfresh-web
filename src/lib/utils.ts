@@ -74,7 +74,7 @@ export function getRoleLabel(role: string): string {
   const map: Record<string, string> = {
     customer: 'Consumer',
     driver: 'Driver',
-    farmer: 'Merchant',
+    farmer: 'Farmer American Hero',
     owner: 'Admin',
   };
   return map[role] || role;

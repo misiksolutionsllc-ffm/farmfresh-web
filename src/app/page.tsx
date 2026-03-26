@@ -6,6 +6,7 @@ import { RoleSelection } from '@/components/role-selection';
 import { CustomerApp } from '@/components/customer/customer-app';
 import { DriverApp } from '@/components/driver/driver-app';
 import { MerchantApp } from '@/components/merchant/merchant-app';
+import { FarmerApp } from '@/components/farmer/farmer-app';
 import { AdminApp } from '@/components/admin/admin-app';
 
 export default function Home() {
@@ -19,7 +20,7 @@ export default function Home() {
     case 'driver':
       return <DriverApp />;
     case 'farmer':
-      return <MerchantApp />;
+      return <FarmerApp />;
     case 'owner':
       return <AdminApp />;
     default:

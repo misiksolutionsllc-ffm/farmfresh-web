@@ -35,12 +35,12 @@ const roles: {
   },
   {
     id: 'farmer',
-    label: 'Merchant',
-    emoji: '🏪',
+    label: 'Farmer American Hero',
+    emoji: '🌾',
     icon: <Store className="w-7 h-7" />,
     color: 'text-orange-400',
     bg: 'bg-orange-500/10 border-orange-500/20 hover:border-orange-500/40 hover:bg-orange-500/15',
-    description: 'Sell your farm products',
+    description: 'Sell your natural farm products 🇺🇸',
   },
 ];
 

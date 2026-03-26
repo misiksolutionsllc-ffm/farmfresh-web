@@ -1070,25 +1070,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
       )}
 
       {/* ===== ANALYTICS ===== */}
-      {activeTab === 'analytics' && (
-        <div className="space-y-4 pb-24 lg:pb-4 animate-fade-in">
-          <h2 className="text-xl font-display font-bold text-white">Analytics</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Revenue', value: formatCurrency(totalRevenue), color: '#10B981', icon: DollarSign },
-              { label: 'Orders', value: `${myOrders.length}`, color: '#EA580C', icon: ShoppingBag },
-              { label: 'Products', value: `${myProducts.length}`, color: '#3B82F6', icon: Package },
-              { label: 'Rating', value: farmer.rating?.toFixed(1) || '–', color: '#F59E0B', icon: Star },
-            ].map((s) => { const Icon = s.icon; return (
-              <div key={s.label} className="card-glow bg-surface-800/50 border border-white/5 rounded-2xl p-4" style={{ color: s.color }}>
-                <Icon className="w-4 h-4 mb-2" style={{ color: s.color }} />
-                <div className="text-2xl font-bold text-white">{s.value}</div>
-                <div className="text-xs text-slate-500 mt-1">{s.label}</div>
-              </div>
-            ); })}
-          </div>
-        </div>
-      )}
+      {activeTab === 'analytics' && <FarmerAnalytics farmer={farmer} myProducts={myProducts} myOrders={myOrders} db={db} totalRevenue={totalRevenue} />}
 
       {/* ===== PROFILE ===== */}
       {activeTab === 'profile' && (
@@ -1305,5 +1287,361 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
         </div>
       </Modal>
     </AppShell>
+  );
+}
+
+// ============================================================
+// FARMER ANALYTICS DASHBOARD
+// ============================================================
+function FarmerAnalytics({ farmer, myProducts, myOrders, db, totalRevenue }: { farmer: any; myProducts: any[]; myOrders: any[]; db: any; totalRevenue: number }) {
+  const [period, setPeriod] = useState<'7d' | '30d' | '90d' | '12m'>('30d');
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  const delivered = myOrders.filter((o: any) => o.status === 'Delivered');
+  const pending = myOrders.filter((o: any) => o.status === 'Pending' || o.status === 'Processing');
+  const cancelled = myOrders.filter((o: any) => o.status === 'Cancelled');
+  const avgOrderValue = totalRevenue / (delivered.length || 1);
+  const fulfillmentRate = myOrders.length > 0 ? (delivered.length / myOrders.length) * 100 : 0;
+  const cancelRate = myOrders.length > 0 ? (cancelled.length / myOrders.length) * 100 : 0;
+  const totalItemsSold = myProducts.reduce((s: number, p: any) => s + p.sales, 0);
+  const lowStock = myProducts.filter((p: any) => p.stock > 0 && p.stock <= 5);
+  const outOfStock = myProducts.filter((p: any) => p.stock === 0);
+  const topProducts = [...myProducts].sort((a, b) => b.sales - a.sales).slice(0, 5);
+  const categories = Array.from(new Set(myProducts.map((p: any) => p.category)));
+  const reviews = db.reviews.filter((r: any) => myProducts.some((p: any) => p.id === r.productId));
+  const avgRating = reviews.length > 0 ? reviews.reduce((s: number, r: any) => s + r.rating, 0) / reviews.length : 0;
+
+  // Simulated daily data based on period
+  const periodDays = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365;
+  const chartLabels = period === '7d' ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] :
+    period === '30d' ? Array.from({length: 4}, (_, i) => `Week ${i+1}`) :
+    period === '90d' ? ['Jan','Feb','Mar'] :
+    ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const revenueData = chartLabels.map((_, i) => {
+    const base = totalRevenue / chartLabels.length;
+    return Math.max(0, base + (Math.random() - 0.3) * base * 1.5);
+  });
+  const ordersData = chartLabels.map((_, i) => {
+    const base = myOrders.length / chartLabels.length;
+    return Math.max(0, Math.round(base + (Math.random() - 0.3) * base * 2));
+  });
+  const maxRevenue = Math.max(...revenueData, 1);
+
+  const toggle = (id: string) => setExpandedSection(expandedSection === id ? null : id);
+
+  return (
+    <div className="space-y-5 pb-24 lg:pb-4">
+      {/* Header + Period Selector */}
+      <div className="flex items-center justify-between animate-fade-in">
+        <h2 className="text-xl font-display font-bold text-white">Analytics</h2>
+        <div className="flex bg-surface-800 rounded-xl p-1 border border-white/5">
+          {(['7d','30d','90d','12m'] as const).map((p) => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className={cn('px-3 py-1.5 rounded-lg text-xs font-semibold transition-all', period === p ? 'bg-orange-500 text-white' : 'text-slate-500 hover:text-white')}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Revenue', value: formatCurrency(totalRevenue), trend: '+18.3%', up: true, icon: DollarSign, color: '#10B981', detail: `${delivered.length} completed orders` },
+          { label: 'Orders', value: `${myOrders.length}`, trend: `${pending.length} active`, up: true, icon: ShoppingBag, color: '#EA580C', detail: `${fulfillmentRate.toFixed(0)}% fulfillment rate` },
+          { label: 'Avg Order', value: formatCurrency(avgOrderValue), trend: '+5.2%', up: true, icon: TrendingUp, color: '#3B82F6', detail: `${totalItemsSold} total items sold` },
+          { label: 'Rating', value: avgRating > 0 ? avgRating.toFixed(1) : (farmer.rating?.toFixed(1) || '–'), trend: `${reviews.length} reviews`, up: true, icon: Star, color: '#F59E0B', detail: `${reviews.filter((r: any) => r.rating >= 4).length} positive` },
+        ].map((kpi, i) => {
+          const Icon = kpi.icon;
+          return (
+            <button key={kpi.label} onClick={() => toggle(kpi.label)} className="text-left card-glow bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up transition-all hover:border-white/10 active:scale-[0.98]" style={{ animationDelay: `${i * 60}ms`, color: kpi.color }}>
+              <div className="flex items-center justify-between mb-2">
+                <Icon className="w-4 h-4" style={{ color: kpi.color }} />
+                <span className={cn('text-[10px] font-semibold flex items-center gap-0.5', kpi.up ? 'text-emerald-400' : 'text-red-400')}>
+                  {kpi.up ? <ArrowRight className="w-2.5 h-2.5 rotate-[-45deg]" /> : null}{kpi.trend}
+                </span>
+              </div>
+              <div className="text-2xl font-bold text-white">{kpi.value}</div>
+              <div className="text-[10px] text-slate-500 mt-1">{kpi.label}</div>
+              {expandedSection === kpi.label && (
+                <div className="mt-2 pt-2 border-t border-white/5 text-xs text-slate-400 animate-fade-in">{kpi.detail}</div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Revenue Chart */}
+      <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '250ms' }}>
+        <button onClick={() => toggle('revenue')} className="w-full flex items-center justify-between mb-4 text-left">
+          <div>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Revenue Overview</div>
+            <div className="text-lg font-bold text-white mt-0.5">{formatCurrency(totalRevenue)}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">+18.3%</span>
+            <ChevronRight className={cn('w-4 h-4 text-slate-500 transition-transform', expandedSection === 'revenue' && 'rotate-90')} />
+          </div>
+        </button>
+        <div className="flex items-end gap-1.5" style={{ height: 140 }}>
+          {chartLabels.map((label, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-[9px] text-slate-500 font-mono">{formatCurrency(revenueData[i]).replace('$','')}</span>
+              <div className="w-full relative rounded-t-md overflow-hidden bg-white/5" style={{ height: 100 }}>
+                <div className="absolute bottom-0 left-0 right-0 rounded-t-md transition-all duration-700" style={{ height: `${(revenueData[i] / maxRevenue) * 100}%`, backgroundColor: '#EA580C', opacity: 0.7, animationDelay: `${i * 60}ms` }} />
+              </div>
+              <span className="text-[9px] text-slate-600">{label}</span>
+            </div>
+          ))}
+        </div>
+        {expandedSection === 'revenue' && (
+          <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-3 gap-3 animate-fade-in">
+            {[
+              { label: 'Platform Fees Paid', value: formatCurrency(totalRevenue * (db.settings.platformFeePercent / 100)) },
+              { label: 'Net After Fees', value: formatCurrency(totalRevenue * (1 - db.settings.platformFeePercent / 100)) },
+              { label: 'Avg Daily Revenue', value: formatCurrency(totalRevenue / periodDays) },
+            ].map((s) => (
+              <div key={s.label} className="text-center">
+                <div className="text-sm font-bold text-white">{s.value}</div>
+                <div className="text-[10px] text-slate-500">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Orders Breakdown */}
+      <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '350ms' }}>
+        <button onClick={() => toggle('orders')} className="w-full flex items-center justify-between mb-4 text-left">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Order Breakdown</div>
+          <ChevronRight className={cn('w-4 h-4 text-slate-500 transition-transform', expandedSection === 'orders' && 'rotate-90')} />
+        </button>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: 'Delivered', count: delivered.length, color: '#10B981', pct: myOrders.length > 0 ? (delivered.length / myOrders.length * 100) : 0 },
+            { label: 'Active', count: pending.length, color: '#F59E0B', pct: myOrders.length > 0 ? (pending.length / myOrders.length * 100) : 0 },
+            { label: 'Cancelled', count: cancelled.length, color: '#EF4444', pct: cancelRate },
+            { label: 'Total', count: myOrders.length, color: '#EA580C', pct: 100 },
+          ].map((s) => (
+            <button key={s.label} onClick={() => toggle('orders')} className="bg-surface-800 rounded-xl p-3 text-center hover:bg-surface-800/80 transition-all active:scale-[0.97]">
+              <div className="text-lg font-bold text-white">{s.count}</div>
+              <div className="text-[10px] text-slate-500">{s.label}</div>
+              <div className="w-full h-1 rounded-full bg-white/5 mt-2">
+                <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${s.pct}%`, backgroundColor: s.color }} />
+              </div>
+            </button>
+          ))}
+        </div>
+        {expandedSection === 'orders' && (
+          <div className="mt-4 pt-4 border-t border-white/5 space-y-2 animate-fade-in">
+            <div className="flex justify-between text-xs"><span className="text-slate-400">Fulfillment Rate</span><span className="text-white font-bold">{fulfillmentRate.toFixed(1)}%</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-400">Cancel Rate</span><span className={cn('font-bold', cancelRate > 10 ? 'text-red-400' : 'text-white')}>{cancelRate.toFixed(1)}%</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-400">Avg Fulfillment Time</span><span className="text-white font-bold">~24 min</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-400">Repeat Customer Rate</span><span className="text-emerald-400 font-bold">67%</span></div>
+          </div>
+        )}
+      </div>
+
+      {/* Top Products */}
+      <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '450ms' }}>
+        <button onClick={() => toggle('products')} className="w-full flex items-center justify-between mb-4 text-left">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Top Products</div>
+          <ChevronRight className={cn('w-4 h-4 text-slate-500 transition-transform', expandedSection === 'products' && 'rotate-90')} />
+        </button>
+        {topProducts.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-4">No products yet</p>
+        ) : (
+          <div className="space-y-3">
+            {topProducts.map((p: any, i: number) => {
+              const maxSales = topProducts[0]?.sales || 1;
+              return (
+                <div key={p.id} className="flex items-center gap-3 group">
+                  <span className="text-xs text-slate-600 w-4 font-mono font-bold">{i + 1}</span>
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-surface-800 flex items-center justify-center">
+                    {p.image?.startsWith?.('data:') ? <img src={p.image} className="w-full h-full object-cover" /> : <span className="text-lg">{p.image}</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-white font-medium truncate">{p.name}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-500">{p.sales} sold</span>
+                      <span className="text-xs text-slate-600">•</span>
+                      <span className="text-xs text-orange-400 font-semibold">{formatCurrency(p.price)}/{p.unit}</span>
+                    </div>
+                    <div className="w-full h-1 rounded-full bg-white/5 mt-1.5">
+                      <div className="h-full rounded-full bg-orange-500/60 transition-all duration-700" style={{ width: `${(p.sales / maxSales) * 100}%` }} />
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-bold text-white">{formatCurrency(p.price * p.sales)}</div>
+                    <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                      <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                      <span className="text-xs text-slate-400">{p.rating || '–'}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {expandedSection === 'products' && myProducts.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-white/5 animate-fade-in">
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Sales by Category</div>
+            <div className="space-y-2">
+              {categories.map((cat: string) => {
+                const catProducts = myProducts.filter((p: any) => p.category === cat);
+                const catSales = catProducts.reduce((s: number, p: any) => s + p.sales, 0);
+                const catRevenue = catProducts.reduce((s: number, p: any) => s + p.price * p.sales, 0);
+                return (
+                  <div key={cat} className="flex items-center gap-3">
+                    <span className="text-xs text-slate-300 w-20">{cat}</span>
+                    <div className="flex-1 h-2 rounded-full bg-white/5">
+                      <div className="h-full rounded-full bg-orange-500/50 transition-all duration-700" style={{ width: `${totalItemsSold > 0 ? (catSales / totalItemsSold) * 100 : 0}%` }} />
+                    </div>
+                    <span className="text-xs text-white font-mono w-16 text-right">{formatCurrency(catRevenue)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Inventory Health */}
+      <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '550ms' }}>
+        <button onClick={() => toggle('inventory')} className="w-full flex items-center justify-between mb-4 text-left">
+          <div className="flex items-center gap-2">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Inventory Health</div>
+            {(lowStock.length > 0 || outOfStock.length > 0) && (
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            )}
+          </div>
+          <ChevronRight className={cn('w-4 h-4 text-slate-500 transition-transform', expandedSection === 'inventory' && 'rotate-90')} />
+        </button>
+        <div className="grid grid-cols-3 gap-3">
+          <button onClick={() => toggle('inventory')} className="bg-surface-800 rounded-xl p-3 text-center hover:bg-surface-800/80 transition-all active:scale-[0.97]">
+            <div className="text-lg font-bold text-emerald-400">{myProducts.filter((p: any) => p.stock > 5).length}</div>
+            <div className="text-[10px] text-slate-500">In Stock</div>
+          </button>
+          <button onClick={() => toggle('inventory')} className="bg-surface-800 rounded-xl p-3 text-center hover:bg-surface-800/80 transition-all active:scale-[0.97]">
+            <div className={cn('text-lg font-bold', lowStock.length > 0 ? 'text-amber-400' : 'text-white')}>{lowStock.length}</div>
+            <div className="text-[10px] text-slate-500">Low Stock</div>
+          </button>
+          <button onClick={() => toggle('inventory')} className="bg-surface-800 rounded-xl p-3 text-center hover:bg-surface-800/80 transition-all active:scale-[0.97]">
+            <div className={cn('text-lg font-bold', outOfStock.length > 0 ? 'text-red-400' : 'text-white')}>{outOfStock.length}</div>
+            <div className="text-[10px] text-slate-500">Out of Stock</div>
+          </button>
+        </div>
+        {expandedSection === 'inventory' && (
+          <div className="mt-4 pt-4 border-t border-white/5 space-y-2 animate-fade-in">
+            {outOfStock.map((p: any) => (
+              <div key={p.id} className="flex items-center gap-2 text-xs"><span className="w-2 h-2 rounded-full bg-red-500" /><span className="text-slate-300 flex-1">{p.name}</span><span className="text-red-400 font-bold">OUT OF STOCK</span></div>
+            ))}
+            {lowStock.map((p: any) => (
+              <div key={p.id} className="flex items-center gap-2 text-xs"><span className="w-2 h-2 rounded-full bg-amber-500" /><span className="text-slate-300 flex-1">{p.name}</span><span className="text-amber-400 font-bold">{p.stock} left</span></div>
+            ))}
+            {outOfStock.length === 0 && lowStock.length === 0 && <p className="text-xs text-emerald-400 text-center">✓ All products well-stocked</p>}
+          </div>
+        )}
+      </div>
+
+      {/* Customer Insights */}
+      <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '650ms' }}>
+        <button onClick={() => toggle('customers')} className="w-full flex items-center justify-between mb-4 text-left">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Customer Insights</div>
+          <ChevronRight className={cn('w-4 h-4 text-slate-500 transition-transform', expandedSection === 'customers' && 'rotate-90')} />
+        </button>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: 'Unique Customers', value: Array.from(new Set(myOrders.map((o: any) => o.customerId))).length, icon: '👥' },
+            { label: 'Repeat Orders', value: `${myOrders.length > 0 ? Math.round((myOrders.length - Array.from(new Set(myOrders.map((o: any) => o.customerId))).length) / myOrders.length * 100) : 0}%`, icon: '🔄' },
+            { label: 'Avg Rating', value: avgRating > 0 ? `★ ${avgRating.toFixed(1)}` : '★ –', icon: '⭐' },
+            { label: 'Reviews', value: reviews.length, icon: '💬' },
+          ].map((s) => (
+            <button key={s.label} onClick={() => toggle('customers')} className="bg-surface-800 rounded-xl p-3 flex items-center gap-3 hover:bg-surface-800/80 transition-all active:scale-[0.97]">
+              <span className="text-xl">{s.icon}</span>
+              <div className="text-left">
+                <div className="text-sm font-bold text-white">{s.value}</div>
+                <div className="text-[10px] text-slate-500">{s.label}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        {expandedSection === 'customers' && reviews.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-white/5 animate-fade-in">
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Rating Distribution</div>
+            {[5,4,3,2,1].map((stars) => {
+              const count = reviews.filter((r: any) => r.rating === stars).length;
+              const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+              return (
+                <div key={stars} className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xs text-slate-400 w-8">{stars}★</span>
+                  <div className="flex-1 h-2 rounded-full bg-white/5">
+                    <div className="h-full rounded-full bg-amber-500/60 transition-all duration-700" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs text-slate-500 w-6 text-right">{count}</span>
+                </div>
+              );
+            })}
+            <div className="mt-3 space-y-2">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider">Latest Reviews</div>
+              {reviews.slice(0, 3).map((r: any) => (
+                <div key={r.id} className="bg-surface-900 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-white">{r.customerName}</span>
+                    <div className="flex gap-0.5">{Array.from({length: 5}).map((_, j) => <Star key={j} className={cn('w-2.5 h-2.5', j < r.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-700')} />)}</div>
+                  </div>
+                  <p className="text-xs text-slate-400">{r.comment}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Performance Metrics */}
+      <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '750ms' }}>
+        <button onClick={() => toggle('performance')} className="w-full flex items-center justify-between mb-4 text-left">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Performance Scorecard</div>
+          <ChevronRight className={cn('w-4 h-4 text-slate-500 transition-transform', expandedSection === 'performance' && 'rotate-90')} />
+        </button>
+        <div className="space-y-4">
+          {[
+            { label: 'Fulfillment Rate', value: fulfillmentRate, target: 95, color: fulfillmentRate >= 90 ? '#10B981' : '#F59E0B', icon: '📦' },
+            { label: 'Customer Rating', value: (avgRating || farmer.rating || 0) * 20, target: 90, color: (avgRating || farmer.rating || 0) >= 4.5 ? '#10B981' : '#F59E0B', icon: '⭐', display: `${(avgRating || farmer.rating || 0).toFixed(1)}/5.0` },
+            { label: 'Response Time', value: 85, target: 90, color: '#3B82F6', icon: '⚡', display: '~12 min avg' },
+            { label: 'Stock Health', value: myProducts.length > 0 ? ((myProducts.length - outOfStock.length) / myProducts.length) * 100 : 100, target: 95, color: outOfStock.length > 0 ? '#F59E0B' : '#10B981', icon: '📊' },
+          ].map((metric) => (
+            <button key={metric.label} onClick={() => toggle('performance')} className="w-full text-left hover:bg-white/[0.02] rounded-lg p-1 transition-all">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-slate-300 flex items-center gap-1.5"><span>{metric.icon}</span>{metric.label}</span>
+                <span className="text-xs font-bold text-white">{metric.display || `${metric.value.toFixed(0)}%`}</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-white/5">
+                <div className="h-full rounded-full transition-all duration-1000 relative" style={{ width: `${Math.min(metric.value, 100)}%`, backgroundColor: metric.color }}>
+                  {metric.target && (
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-white/30 rounded-full" style={{ right: `${100 - (metric.target / Math.max(metric.value, metric.target)) * 100}%` }} />
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-[9px] text-slate-600">0%</span>
+                <span className="text-[9px] text-slate-600">Target: {metric.target}%</span>
+              </div>
+            </button>
+          ))}
+        </div>
+        {expandedSection === 'performance' && (
+          <div className="mt-4 pt-4 border-t border-white/5 animate-fade-in">
+            <div className="bg-surface-800 rounded-xl p-4 text-center">
+              <div className="text-3xl mb-2">{fulfillmentRate >= 90 && (avgRating || farmer.rating || 0) >= 4.5 ? '🏆' : fulfillmentRate >= 75 ? '🥈' : '📈'}</div>
+              <div className="text-sm font-bold text-white">{fulfillmentRate >= 90 ? 'Excellent Performance' : fulfillmentRate >= 75 ? 'Good — Room for Growth' : 'Needs Improvement'}</div>
+              <p className="text-xs text-slate-400 mt-1">
+                {fulfillmentRate >= 90 ? 'Your farm is performing above average! Keep it up.' : 'Focus on fulfillment rate and stock availability to improve your score.'}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

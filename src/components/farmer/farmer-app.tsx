@@ -564,6 +564,8 @@ function FarmerOnboarding({ onComplete }: { onComplete: () => void }) {
 function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (t: string) => void }) {
   const { db, dispatch, showToast, currentUserId } = useAppStore();
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [productPhoto, setProductPhoto] = useState<string | null>(null);
   const [aiDescription, setAiDescription] = useState('');
@@ -640,28 +642,68 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
     reader.readAsDataURL(file);
   };
 
-  const saveProduct = () => {
-    if (!form.name || !form.price) return;
-    // Store product photo base64 as the image (instead of emoji)
-    dispatch({
-      type: 'ADD_PRODUCT',
-      payload: {
-        farmerId: currentUserId!,
-        name: form.name,
-        price: parseFloat(form.price),
-        unit: form.unit,
-        category: form.category,
-        stock: parseInt(form.stock) || 50,
-        description: form.description,
-        image: productPhoto || '🥬', // Use uploaded photo or fallback to emoji
-      },
+  const openEdit = (p: any) => {
+    setEditingProductId(p.id);
+    setForm({
+      name: p.name,
+      price: p.price.toString(),
+      unit: p.unit,
+      category: p.category,
+      stock: p.stock.toString(),
+      description: p.description || '',
     });
-    showToast('Product published to marketplace! 🎉');
+    setProductPhoto(p.image.startsWith('data:') ? p.image : null);
+    setAiDescription('');
+    setAiRejection('');
+    setShowAddProduct(true);
+  };
+
+  const closeModal = () => {
     setShowAddProduct(false);
+    setEditingProductId(null);
     setForm({ name: '', price: '', unit: 'lb', category: 'Vegetables', stock: '', description: '' });
     setProductPhoto(null);
     setAiDescription('');
     setAiRejection('');
+  };
+
+  const saveProduct = () => {
+    if (!form.name || !form.price) return;
+
+    if (editingProductId) {
+      // UPDATE existing product
+      dispatch({
+        type: 'UPDATE_PRODUCT',
+        payload: {
+          id: editingProductId,
+          name: form.name,
+          price: parseFloat(form.price),
+          unit: form.unit,
+          category: form.category,
+          stock: parseInt(form.stock) || 0,
+          description: form.description,
+          ...(productPhoto ? { image: productPhoto } : {}),
+        },
+      });
+      showToast('Product updated! ✅');
+    } else {
+      // ADD new product
+      dispatch({
+        type: 'ADD_PRODUCT',
+        payload: {
+          farmerId: currentUserId!,
+          name: form.name,
+          price: parseFloat(form.price),
+          unit: form.unit,
+          category: form.category,
+          stock: parseInt(form.stock) || 50,
+          description: form.description,
+          image: productPhoto || '🥬',
+        },
+      });
+      showToast('Product published to marketplace! 🎉');
+    }
+    closeModal();
   };
 
   if (!farmer) return null;
@@ -703,27 +745,121 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
         <div className="space-y-4 pb-24 lg:pb-4">
           <div className="flex items-center justify-between animate-fade-in">
             <h2 className="text-xl font-display font-bold text-white">My Products ({myProducts.length})</h2>
-            <button onClick={() => setShowAddProduct(true)} className="btn-primary bg-orange-600 text-sm py-2.5 flex items-center gap-2">
+            <button onClick={() => { closeModal(); setShowAddProduct(true); }} className="btn-primary bg-orange-600 text-sm py-2.5 flex items-center gap-2">
               <Plus className="w-4 h-4" /> Add Product
             </button>
           </div>
-          {myProducts.map((p, i) => (
-            <div key={p.id} className="bg-surface-800/50 border border-white/5 rounded-2xl p-4 flex items-center gap-4 card-hover animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
-              {p.image.startsWith('data:') ? (
-                <img src={p.image} alt={p.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-              ) : (
-                <div className="w-14 h-14 bg-surface-800 rounded-xl flex items-center justify-center text-3xl flex-shrink-0">{p.image}</div>
-              )}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-white text-sm truncate">{p.name}</h3>
-                <span className="text-sm font-bold text-orange-400">{formatCurrency(p.price)}/{p.unit}</span>
-                <span className="text-xs text-slate-500 ml-2">• {p.stock} in stock • {p.sales} sold</span>
+          {myProducts.length === 0 ? (
+            <div className="text-center py-20 animate-fade-in"><span className="text-6xl block mb-4 animate-float">📦</span><p className="text-slate-400">No products yet — add your first item!</p></div>
+          ) : (
+            myProducts.map((p, i) => (
+              <div key={p.id} className="bg-surface-800/50 border border-white/5 rounded-2xl p-4 flex items-center gap-4 card-hover animate-fade-in-up cursor-pointer group" style={{ animationDelay: `${i * 50}ms` }}
+                onClick={() => setSelectedProduct(p.id)}>
+                {p.image.startsWith('data:') ? (
+                  <img src={p.image} alt={p.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 bg-surface-800 rounded-xl flex items-center justify-center text-3xl flex-shrink-0">{p.image}</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-white text-sm truncate">{p.name}</h3>
+                  <span className="text-sm font-bold text-orange-400">{formatCurrency(p.price)}/{p.unit}</span>
+                  <span className="text-xs text-slate-500 ml-2">• {p.stock} in stock • {p.sales} sold</span>
+                  {p.description && <p className="text-xs text-slate-500 mt-0.5 truncate">{p.description}</p>}
+                </div>
+                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => openEdit(p)} className="p-2 text-slate-400 hover:text-orange-400 rounded-lg hover:bg-orange-500/5 transition-all" title="Edit">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => { dispatch({ type: 'DELETE_PRODUCT', id: p.id }); showToast('Removed'); }} className="p-2 text-slate-400 hover:text-red-400 rounded-lg hover:bg-red-500/5 transition-all" title="Delete">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Mobile: always show buttons */}
+                <div className="flex flex-col gap-1 lg:hidden" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => openEdit(p)} className="p-2 text-slate-400 hover:text-orange-400 rounded-lg hover:bg-orange-500/5">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => { dispatch({ type: 'DELETE_PRODUCT', id: p.id }); showToast('Removed'); }} className="p-2 text-slate-400 hover:text-red-400 rounded-lg hover:bg-red-500/5">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <button onClick={() => { dispatch({ type: 'DELETE_PRODUCT', id: p.id }); showToast('Removed'); }} className="p-2 text-slate-400 hover:text-red-400 rounded-lg hover:bg-red-500/5"><Trash2 className="w-4 h-4" /></button>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
+
+      {/* ===== PRODUCT DETAIL MODAL ===== */}
+      {(() => {
+        const detailProduct = myProducts.find((p) => p.id === selectedProduct);
+        return (
+          <Modal open={!!detailProduct} onClose={() => setSelectedProduct(null)} title={detailProduct?.name || 'Product'}>
+            {detailProduct && (
+              <div>
+                {/* Product Image */}
+                <div className="aspect-[4/3] bg-gradient-to-br from-surface-800 to-surface-900 flex items-center justify-center overflow-hidden">
+                  {detailProduct.image.startsWith('data:') ? (
+                    <img src={detailProduct.image} alt={detailProduct.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[80px]">{detailProduct.image}</span>
+                  )}
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h2 className="text-xl font-display font-bold text-white">{detailProduct.name}</h2>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-2xl font-bold text-orange-400">{formatCurrency(detailProduct.price)}</span>
+                        <span className="text-slate-500">/{detailProduct.unit}</span>
+                      </div>
+                    </div>
+                    <span className={cn('badge', detailProduct.stock > 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>
+                      {detailProduct.stock > 0 ? `${detailProduct.stock} in stock` : 'Out of stock'}
+                    </span>
+                  </div>
+
+                  {detailProduct.description && (
+                    <p className="text-sm text-slate-400 leading-relaxed">{detailProduct.description}</p>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-surface-800 rounded-xl p-3 text-center">
+                      <div className="text-lg font-bold text-white">{detailProduct.sales}</div>
+                      <div className="text-[10px] text-slate-500">Sold</div>
+                    </div>
+                    <div className="bg-surface-800 rounded-xl p-3 text-center">
+                      <div className="text-lg font-bold text-white flex items-center justify-center gap-1"><Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />{detailProduct.rating || '–'}</div>
+                      <div className="text-[10px] text-slate-500">Rating</div>
+                    </div>
+                    <div className="bg-surface-800 rounded-xl p-3 text-center">
+                      <div className="text-lg font-bold text-white">{formatCurrency(detailProduct.price * detailProduct.sales)}</div>
+                      <div className="text-[10px] text-slate-500">Revenue</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span className="badge bg-surface-800 text-slate-300">{detailProduct.category}</span>
+                    {detailProduct.organic && <span className="badge bg-emerald-500/20 text-emerald-400">🌿 Organic</span>}
+                    {detailProduct.vegan && <span className="badge bg-green-500/20 text-green-400">🌱 Vegan</span>}
+                    {detailProduct.glutenFree && <span className="badge bg-amber-500/20 text-amber-400">GF</span>}
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => { setSelectedProduct(null); openEdit(detailProduct); }}
+                      className="flex-1 btn-primary bg-orange-600 flex items-center justify-center gap-2 text-sm">
+                      <Pencil className="w-4 h-4" /> Edit Product
+                    </button>
+                    <button onClick={() => { dispatch({ type: 'DELETE_PRODUCT', id: detailProduct.id }); setSelectedProduct(null); showToast('Product removed'); }}
+                      className="px-4 py-3 rounded-2xl border border-red-500/20 text-red-400 hover:bg-red-500/5 transition-all text-sm font-semibold">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
 
       {/* ===== ANALYTICS ===== */}
       {activeTab === 'analytics' && (
@@ -768,8 +904,8 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
       {/* Notifications */}
       {activeTab === 'notifications' && <div className="pb-24"><h2 className="text-xl font-display font-bold text-white mb-4">Notifications</h2><p className="text-slate-400 text-center py-12">No notifications</p></div>}
 
-      {/* ===== ADD PRODUCT MODAL WITH AI ===== */}
-      <Modal open={showAddProduct} onClose={() => { setShowAddProduct(false); setProductPhoto(null); setAiDescription(''); }} title="Add Product">
+      {/* ===== ADD/EDIT PRODUCT MODAL WITH AI ===== */}
+      <Modal open={showAddProduct} onClose={closeModal} title={editingProductId ? 'Edit Product' : 'Add Product'}>
         <div className="p-6 space-y-4">
           {/* Photo Upload with AI */}
           <div>
@@ -834,7 +970,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
           <div className="flex items-center gap-2 text-xs text-emerald-400 px-1"><Leaf className="w-3 h-3" /> Products must comply with our Natural Food Pledge (no GMO, no pesticides, no chemicals)</div>
           <button onClick={saveProduct} disabled={!form.name || !form.price}
             className="w-full btn-primary bg-orange-600 flex items-center justify-center gap-2 disabled:opacity-30">
-            <Zap className="w-4 h-4" /> Publish to Marketplace
+            <Zap className="w-4 h-4" /> {editingProductId ? 'Update Product' : 'Publish to Marketplace'}
           </button>
         </div>
       </Modal>

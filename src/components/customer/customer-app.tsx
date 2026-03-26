@@ -11,6 +11,9 @@ import {
   Home, ShoppingCart, Package, User, Heart, Search, Plus, Minus,
   Star, X, Leaf, Wheat, Clock, MapPin, Tag, ChevronRight,
   Sparkles, Gift, Truck, Check, ShoppingBag, ArrowRight,
+  CreditCard, Settings, LogOut, Bell, Shield, Mail, Phone,
+  Copy, Share2, Pencil, BadgePercent, Crown, Award, TrendingUp,
+  HelpCircle, FileText, Landmark, Eye, EyeOff, ChevronDown,
 } from 'lucide-react';
 
 const navItems = [
@@ -333,35 +336,252 @@ export function CustomerApp() {
 
       {/* ========== PROFILE TAB ========== */}
       {activeTab === 'profile' && currentUser && (
-        <div className="max-w-2xl mx-auto space-y-6 pb-24 lg:pb-4">
-          <div className="text-center bg-gradient-to-br from-emerald-600/10 to-surface-800/30 border border-white/5 rounded-3xl p-8 animate-fade-in">
-            <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4 animate-pulse-glow">
-              <span className="text-3xl font-bold text-emerald-400">{currentUser.name.charAt(0)}</span>
+        <div className="max-w-2xl mx-auto space-y-4 pb-24 lg:pb-4">
+          {/* Avatar + Hero Card */}
+          <div className="relative bg-gradient-to-br from-emerald-600/10 via-emerald-800/5 to-surface-800/30 border border-white/5 rounded-3xl p-6 animate-fade-in overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/[0.04] rounded-full -translate-y-1/2 translate-x-1/3 blur-2xl" />
+            <div className="relative z-10">
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 flex items-center justify-center animate-pulse-glow flex-shrink-0">
+                  <span className="text-2xl font-bold text-emerald-400">{currentUser.name.charAt(0)}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-bold text-white truncate">{currentUser.name}</h2>
+                  <p className="text-xs text-slate-400">{currentUser.email}</p>
+                  {currentUser.phone && <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{currentUser.phone}</p>}
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="badge bg-amber-500/15 text-amber-400 flex items-center gap-1"><Crown className="w-3 h-3" />{currentUser.loyaltyTier || 'Bronze'}</span>
+                    <span className="badge bg-emerald-500/15 text-emerald-400"><Shield className="w-3 h-3 inline mr-0.5" />Verified</span>
+                  </div>
+                </div>
+                <button onClick={() => showToast('Edit profile')} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"><Pencil className="w-4 h-4" /></button>
+              </div>
+
+              {/* Stats Row */}
+              <div className="grid grid-cols-4 gap-2 mt-5">
+                {[
+                  { value: `${currentUser.points || 0}`, label: 'Points', color: 'text-emerald-400' },
+                  { value: formatCurrency(currentUser.credits), label: 'Credits', color: 'text-blue-400' },
+                  { value: `${myOrders.length}`, label: 'Orders', color: 'text-orange-400' },
+                  { value: formatCurrency(currentUser.totalSpent), label: 'Spent', color: 'text-violet-400' },
+                ].map((s, i) => (
+                  <div key={s.label} className="bg-surface-900/50 rounded-xl p-2.5 text-center animate-count-up" style={{ animationDelay: `${i * 80 + 150}ms` }}>
+                    <div className={cn('text-base font-bold', s.color)}>{s.value}</div>
+                    <div className="text-[10px] text-slate-500">{s.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <h2 className="text-xl font-bold text-white">{currentUser.name}</h2>
-            <p className="text-sm text-slate-400">{currentUser.email}</p>
-            <div className="flex items-center justify-center gap-8 mt-6">
+          </div>
+
+          {/* Loyalty Progress */}
+          <button onClick={() => showToast('Loyalty tier details')} className="w-full text-left card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up hover:border-white/10 transition-all active:scale-[0.99]" style={{ animationDelay: '100ms' }}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Gift className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-semibold text-white">Loyalty Progress</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </div>
+            <ProgressBar value={currentUser.totalSpent || 0} max={1000} color="#F59E0B" height={8} label={`${formatCurrency(currentUser.totalSpent)} / $1,000`} showValue />
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-slate-500">Spend {formatCurrency(1000 - (currentUser.totalSpent || 0))} more to reach Gold</p>
+              <div className="flex gap-1">{['Bronze','Silver','Gold'].map((t) => (
+                <span key={t} className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded', t === (currentUser.loyaltyTier || 'Bronze') ? 'bg-amber-500/20 text-amber-400' : 'text-slate-600')}>{t}</span>
+              ))}</div>
+            </div>
+          </button>
+
+          {/* Referral Card */}
+          <div className="bg-gradient-to-r from-violet-600/10 to-blue-600/10 border border-violet-500/10 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0"><Share2 className="w-5 h-5 text-violet-400" /></div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-white">Refer & Earn $5</div>
+                <p className="text-xs text-slate-400">Share your code, get $5 credit per friend</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-3">
+              <div className="flex-1 bg-surface-900 rounded-xl px-4 py-2.5 flex items-center justify-between">
+                <span className="text-sm font-mono font-bold text-violet-400">{currentUser.referralCode || 'GENERATE'}</span>
+                <button onClick={() => { navigator.clipboard?.writeText(currentUser.referralCode || '').then(() => showToast('Code copied!')).catch(() => showToast('Code: ' + (currentUser.referralCode || 'N/A'), 'info')); }}
+                  className="p-1 text-slate-500 hover:text-white"><Copy className="w-3.5 h-3.5" /></button>
+              </div>
+              <button onClick={() => showToast('Share link copied!')} className="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-all active:scale-[0.97]">
+                <Share2 className="w-4 h-4" />
+              </button>
+            </div>
+            {(currentUser.referralCount || 0) > 0 && (
+              <p className="text-xs text-violet-400 mt-2">{currentUser.referralCount} friends referred • {formatCurrency((currentUser.referralCount || 0) * 5)} earned</p>
+            )}
+          </div>
+
+          {/* Order Summary */}
+          <button onClick={() => setActiveTab('orders')} className="w-full text-left card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up hover:border-white/10 transition-all active:scale-[0.99]" style={{ animationDelay: '300ms' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-orange-400" />
+                <span className="text-sm font-semibold text-white">Order History</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { value: `${currentUser.points || 0}`, label: 'Points', color: 'text-emerald-400' },
-                { value: formatCurrency(currentUser.credits), label: 'Credits', color: 'text-blue-400' },
-                { value: currentUser.loyaltyTier || 'Bronze', label: 'Tier', color: 'text-amber-400' },
-              ].map((s, i) => (
-                <div key={s.label} className="animate-count-up" style={{ animationDelay: `${i * 100 + 200}ms` }}>
-                  <div className={cn('text-xl font-bold', s.color)}>{s.value}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+                { label: 'Active', count: myOrders.filter((o) => o.status !== 'Delivered' && o.status !== 'Cancelled').length, color: '#3B82F6' },
+                { label: 'Delivered', count: myOrders.filter((o) => o.status === 'Delivered').length, color: '#10B981' },
+                { label: 'Total', count: myOrders.length, color: '#EA580C' },
+              ].map((s) => (
+                <div key={s.label} className="bg-surface-900 rounded-xl p-2.5 text-center">
+                  <div className="text-base font-bold" style={{ color: s.color }}>{s.count}</div>
+                  <div className="text-[10px] text-slate-500">{s.label}</div>
                 </div>
               ))}
             </div>
-          </div>
-          {/* Loyalty progress */}
-          <div className="bg-surface-800/50 border border-white/5 rounded-2xl p-5 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Gift className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-semibold text-white">Loyalty Progress</span>
+          </button>
+
+          {/* Saved Addresses */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm font-semibold text-white">Addresses</span>
+              </div>
+              <button onClick={() => showToast('Add new address')} className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"><Plus className="w-3 h-3" />Add</button>
             </div>
-            <ProgressBar value={currentUser.totalSpent || 0} max={1000} color="#F59E0B" height={8} label={`${formatCurrency(currentUser.totalSpent)} spent`} showValue />
-            <p className="text-xs text-slate-500 mt-2">Spend {formatCurrency(1000 - (currentUser.totalSpent || 0))} more to reach Gold</p>
+            {currentUser.address ? (
+              <button onClick={() => showToast('Edit address')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0"><MapPin className="w-5 h-5 text-emerald-400" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white font-medium">Home</span>
+                    <span className="badge bg-emerald-500/15 text-emerald-400 text-[9px]">Default</span>
+                  </div>
+                  <p className="text-xs text-slate-400 truncate">{currentUser.address.street}, {currentUser.address.city}, {currentUser.address.state} {currentUser.address.zip}</p>
+                </div>
+                <Pencil className="w-3.5 h-3.5 text-slate-600" />
+              </button>
+            ) : (
+              <button onClick={() => showToast('Add your delivery address')} className="w-full py-4 rounded-xl border border-dashed border-white/10 text-sm text-slate-500 hover:text-white hover:border-emerald-500/30 transition-all">
+                <Plus className="w-4 h-4 inline mr-1" /> Add delivery address
+              </button>
+            )}
           </div>
+
+          {/* Payment Methods */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '500ms' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold text-white">Payment Methods</span>
+              </div>
+              <button onClick={() => showToast('Add payment method')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"><Plus className="w-3 h-3" />Add</button>
+            </div>
+            <div className="space-y-2">
+              <button onClick={() => showToast('Manage Visa card')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                  <CreditCard className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white font-medium">Visa •••• 4242</span>
+                    <span className="badge bg-blue-500/15 text-blue-400 text-[9px]">Default</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Expires 12/28</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+              <button onClick={() => showToast('Manage Apple Pay')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
+                <div className="w-10 h-10 rounded-lg bg-slate-500/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-lg">🍎</span>
+                </div>
+                <div className="flex-1">
+                  <span className="text-sm text-white font-medium">Apple Pay</span>
+                  <div className="text-xs text-slate-500">Connected</div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+          </div>
+
+          {/* Dietary Preferences */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '600ms' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Leaf className="w-4 h-4 text-green-400" />
+                <span className="text-sm font-semibold text-white">Dietary Preferences</span>
+              </div>
+              <button onClick={() => showToast('Edit preferences')} className="text-xs text-green-400 hover:text-green-300">Edit</button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: '🌿 Organic', active: true },
+                { label: '🌱 Vegan', active: false },
+                { label: '🥜 Nut-Free', active: false },
+                { label: '🌾 Gluten-Free', active: true },
+                { label: '🥛 Dairy-Free', active: false },
+                { label: '🍯 Local Honey', active: true },
+              ].map((pref) => (
+                <button key={pref.label} onClick={() => showToast(`${pref.label} ${pref.active ? 'removed' : 'added'}`)}
+                  className={cn('px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-[0.95]',
+                    pref.active ? 'bg-green-500/15 text-green-400 border border-green-500/20' : 'bg-surface-900 text-slate-500 border border-white/5 hover:border-white/10')}>
+                  {pref.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Notification Preferences */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '700ms' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Bell className="w-4 h-4 text-amber-400" />
+              <span className="text-sm font-semibold text-white">Notifications</span>
+            </div>
+            {[
+              { label: 'Order updates', desc: 'Status changes, delivery alerts', on: true },
+              { label: 'Promotions', desc: 'Deals, new products, seasonal offers', on: true },
+              { label: 'Price drops', desc: 'Alerts when saved items go on sale', on: false },
+            ].map((n) => (
+              <button key={n.label} onClick={() => showToast(`${n.label} ${n.on ? 'disabled' : 'enabled'}`)}
+                className="w-full flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-all rounded-lg px-1">
+                <div>
+                  <div className="text-sm text-white">{n.label}</div>
+                  <div className="text-xs text-slate-500">{n.desc}</div>
+                </div>
+                <div className={cn('w-10 h-6 rounded-full flex items-center transition-all px-0.5', n.on ? 'bg-emerald-500 justify-end' : 'bg-surface-900 justify-start')}>
+                  <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Settings Menu */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl overflow-hidden animate-fade-in-up" style={{ animationDelay: '800ms' }}>
+            {[
+              { label: 'Account Settings', icon: Settings, color: 'text-slate-400', action: 'Account settings' },
+              { label: 'Privacy & Security', icon: Shield, color: 'text-blue-400', action: 'Privacy settings' },
+              { label: 'Help & Support', icon: HelpCircle, color: 'text-emerald-400', action: 'Support center' },
+              { label: 'Terms & Policies', icon: FileText, color: 'text-slate-400', action: 'Terms and policies' },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <button key={item.label} onClick={() => showToast(item.action)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
+                  <Icon className={cn('w-4 h-4', item.color)} />
+                  <span className="text-sm text-slate-300 flex-1 text-left">{item.label}</span>
+                  <ChevronRight className="w-4 h-4 text-slate-600" />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sign Out */}
+          <button onClick={() => { showToast('Signed out', 'info'); }}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-red-500/10 text-red-400/70 hover:text-red-400 hover:bg-red-500/5 transition-all animate-fade-in-up active:scale-[0.98]" style={{ animationDelay: '900ms' }}>
+            <LogOut className="w-4 h-4" />
+            <span className="text-sm font-medium">Sign Out</span>
+          </button>
+
+          <p className="text-center text-[10px] text-slate-700 pb-4">FarmFresh Hub v1.0 • Made with 🌿 in Florida</p>
         </div>
       )}
 

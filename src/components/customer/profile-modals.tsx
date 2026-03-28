@@ -5,6 +5,7 @@ import { useAppStore } from '@/lib/app-store';
 import { Modal } from '@/components/ui/modal';
 import { ProgressBar } from '@/components/ui/charts';
 import { cn, formatCurrency } from '@/lib/utils';
+import { LEGAL_DOCUMENTS } from '@/lib/legal-documents';
 import {
   User, MapPin, Phone, Mail, CreditCard, Shield, Bell, Gift,
   Crown, Pencil, Plus, Check, X, Star, ChevronRight, Copy,
@@ -477,27 +478,70 @@ export function HelpModal({ open, onClose }: { open: boolean; onClose: () => voi
 // TERMS MODAL
 // ============================================================
 export function TermsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <Modal open={open} onClose={onClose} title="Terms & Policies">
-      <div className="p-6 space-y-2">
-        {[
-          { label: 'Terms of Service', date: 'Updated Mar 2026', url: '#' },
-          { label: 'Privacy Policy', date: 'Updated Mar 2026', url: '#' },
-          { label: 'Refund Policy', date: 'Updated Feb 2026', url: '#' },
-          { label: 'Community Guidelines', date: 'Updated Jan 2026', url: '#' },
-          { label: 'Natural Food Standards', date: 'Updated Mar 2026', url: '#' },
-          { label: 'Cookie Policy', date: 'Updated Jan 2026', url: '#' },
-        ].map((doc) => (
-          <button key={doc.label} className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-white/[0.03] transition-all active:bg-white/[0.05]">
-            <FileText className="w-4 h-4 text-slate-400" />
-            <div className="flex-1 text-left">
-              <div className="text-sm text-white">{doc.label}</div>
-              <div className="text-xs text-slate-500">{doc.date}</div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-600" />
+  const [activeDoc, setActiveDoc] = useState<string | null>(null);
+  const selectedDoc = activeDoc ? LEGAL_DOCUMENTS.find((d) => d.id === activeDoc) : null;
+
+  const handleClose = () => { setActiveDoc(null); onClose(); };
+  const handleBack = () => setActiveDoc(null);
+
+  // Document reader view
+  if (selectedDoc) {
+    return (
+      <Modal open={open} onClose={handleClose} title={selectedDoc.title}>
+        <div className="relative">
+          <button onClick={handleBack} className="sticky top-0 z-10 w-full flex items-center gap-2 px-6 py-3 bg-surface-900/95 backdrop-blur-xl border-b border-white/5 text-sm text-emerald-400 hover:text-emerald-300 transition-colors">
+            <ChevronRight className="w-4 h-4 rotate-180" /> Back to all documents
           </button>
-        ))}
-        <p className="text-[10px] text-slate-600 text-center pt-3">© 2026 FarmFresh Hub. All rights reserved.</p>
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-2xl">{selectedDoc.icon}</span>
+              <h2 className="text-lg font-bold text-white">{selectedDoc.title}</h2>
+            </div>
+            <p className="text-xs text-slate-500 mb-6">Last updated: {selectedDoc.lastUpdated} • MISIKSOLUTIONS LLC</p>
+
+            <div className="space-y-6">
+              {selectedDoc.sections.map((section, i) => (
+                <div key={i}>
+                  <h3 className="text-sm font-bold text-emerald-400 mb-2">{section.heading}</h3>
+                  <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                    {section.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 pt-4 border-t border-white/5 text-center">
+              <p className="text-[10px] text-slate-600">© 2026 MISIKSOLUTIONS LLC. All rights reserved.</p>
+              <p className="text-[10px] text-slate-600">FarmFresh Hub • Wellington, Florida</p>
+              <p className="text-[10px] text-slate-600">misiksolutionsllc@gmail.com</p>
+            </div>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  // Document list view
+  return (
+    <Modal open={open} onClose={handleClose} title="Terms & Policies">
+      <div className="p-6">
+        <p className="text-xs text-slate-400 mb-4">Legal documents governing your use of FarmFresh Hub, operated by MISIKSOLUTIONS LLC.</p>
+        <div className="space-y-2">
+          {LEGAL_DOCUMENTS.map((doc) => (
+            <button key={doc.id} onClick={() => setActiveDoc(doc.id)}
+              className="w-full flex items-center gap-3 px-4 py-4 rounded-xl hover:bg-white/[0.03] transition-all active:bg-white/[0.05] border border-white/5 hover:border-white/10">
+              <span className="text-xl">{doc.icon}</span>
+              <div className="flex-1 text-left">
+                <div className="text-sm text-white font-medium">{doc.title}</div>
+                <div className="text-xs text-slate-500">Updated {doc.lastUpdated}</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 pt-4 border-t border-white/5">
+          <p className="text-[10px] text-slate-600 text-center">© 2026 MISIKSOLUTIONS LLC • misiksolutionsllc@gmail.com</p>
+        </div>
       </div>
     </Modal>
   );

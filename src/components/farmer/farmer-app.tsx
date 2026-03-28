@@ -13,8 +13,9 @@ import {
   Upload, Image, Leaf, Award, Flag, GraduationCap, ScrollText, Globe,
   Locate, Search, X, Check, AlertTriangle, Zap, Brain, ArrowRight,
   Megaphone, CreditCard, Landmark, Crown, Rocket, TrendingUp, Eye,
-  Clock, Truck, MessageSquare, BadgePercent, Target, Gift,
+  Clock, Truck, MessageSquare, BadgePercent, Target, Gift, Settings,
 } from 'lucide-react';
+import { SettingsSection } from '@/components/ui/shared-settings';
 
 // ============================================================
 // ONBOARDING STEPS
@@ -35,6 +36,7 @@ const navItems = [
   { id: 'marketing', label: 'Marketing', icon: <Megaphone className="w-5 h-5" /> },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
   { id: 'profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
+  { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 // US State list for autocomplete
@@ -1215,6 +1217,9 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
 
       {/* Notifications */}
       {activeTab === 'notifications' && <div className="pb-24"><h2 className="text-xl font-display font-bold text-white mb-4">Notifications</h2><p className="text-slate-400 text-center py-12">No notifications</p></div>}
+
+      {/* ===== SETTINGS ===== */}
+      {activeTab === 'settings' && <SettingsSection role="farmer" detectedState={farmer.address?.state || 'FL'} />}
 
       {/* ===== ADD/EDIT PRODUCT MODAL WITH AI ===== */}
       <Modal open={showAddProduct} onClose={closeModal} title={editingProductId ? 'Edit Product' : 'Add Product'}>

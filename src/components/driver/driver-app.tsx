@@ -5,8 +5,9 @@ import { useAppStore } from '@/lib/app-store';
 import { AppShell } from '@/components/ui/app-shell';
 import { MiniStat, BarChart, ProgressBar, Sparkline } from '@/components/ui/charts';
 import { LiveMap, DriverMapView } from '@/components/ui/live-map';
+import { SettingsSection } from '@/components/ui/shared-settings';
 import { cn, formatCurrency, getStatusColor, formatDate } from '@/lib/utils';
-import { Gauge, Package, DollarSign, User, Map, Power, Navigation, Star, Zap, Banknote, Clock, MapPin, TrendingUp, ChevronRight } from 'lucide-react';
+import { Gauge, Package, DollarSign, User, Map, Power, Navigation, Star, Zap, Banknote, Clock, MapPin, TrendingUp, ChevronRight, Settings } from 'lucide-react';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <Gauge className="w-5 h-5" /> },
@@ -14,6 +15,7 @@ const navItems = [
   { id: 'earnings', label: 'Earnings', icon: <DollarSign className="w-5 h-5" /> },
   { id: 'map', label: 'Map', icon: <Map className="w-5 h-5" /> },
   { id: 'profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
+  { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 export function DriverApp() {
@@ -270,6 +272,9 @@ export function DriverApp() {
           </div>
         </div>
       )}
+
+      {/* ========== SETTINGS TAB ========== */}
+      {activeTab === 'settings' && <SettingsSection role="driver" detectedState="FL" />}
 
       {/* Notifications */}
       {activeTab === 'notifications' && (

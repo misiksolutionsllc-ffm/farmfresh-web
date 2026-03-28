@@ -6,6 +6,7 @@ import { AppShell } from '@/components/ui/app-shell';
 import { ConfirmDialog } from '@/components/ui/modal';
 import { MiniStat, DonutChart, BarChart, ProgressBar, Sparkline } from '@/components/ui/charts';
 import { GodModeMapView } from '@/components/ui/live-map';
+import { SettingsSection } from '@/components/ui/shared-settings';
 import { cn, formatCurrency, getStatusColor, formatDate, getRoleLabel } from '@/lib/utils';
 import { BarChart3, Users, Settings, Database, Shield, Activity, DollarSign, Package, Truck, Store, ShoppingCart, UserCheck, UserX, AlertTriangle, Trash2, ToggleLeft, ToggleRight, Eye, Zap, TrendingUp, MapPin } from 'lucide-react';
 
@@ -282,6 +283,12 @@ export function AdminApp() {
               <input type="range" min={s.min} max={s.max} step={s.step} value={Number(db.settings[s.key])} onChange={(e) => dispatch({ type: 'UPDATE_SETTING', key: s.key, value: parseFloat(e.target.value) })} className="w-full accent-red-500" />
             </div>
           ))}
+
+          {/* Legal & Account */}
+          <div className="pt-4 border-t border-white/5">
+            <h3 className="text-sm font-bold text-slate-400 mb-3">Legal, Privacy & Account</h3>
+          </div>
+          <SettingsSection role="owner" detectedState="FL" />
         </div>
       )}
 

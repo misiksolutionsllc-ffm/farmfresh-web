@@ -574,22 +574,30 @@ export function CustomerApp() {
 
           {/* Settings Menu */}
           <div className="card bg-surface-800/50 border border-white/5 rounded-2xl overflow-hidden animate-fade-in-up" style={{ animationDelay: '800ms' }}>
-            {[
-              { label: 'Account Settings', icon: Settings, color: 'text-slate-400', action: 'Account settings' },
-              { label: 'Privacy & Security', icon: Shield, color: 'text-blue-400', action: 'Privacy settings' },
-              { label: 'Help & Support', icon: HelpCircle, color: 'text-emerald-400', action: 'Support center' },
-              { label: 'Terms & Policies', icon: FileText, color: 'text-slate-400', action: 'Terms and policies' },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <button key={item.label} onClick={() => showToast(item.action)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
-                  <Icon className={cn('w-4 h-4', item.color)} />
-                  <span className="text-sm text-slate-300 flex-1 text-left">{item.label}</span>
-                  <ChevronRight className="w-4 h-4 text-slate-600" />
-                </button>
-              );
-            })}
+            <button onClick={() => setShowAccountSettings(true)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
+              <Settings className="w-4 h-4 text-slate-400" />
+              <span className="text-sm text-slate-300 flex-1 text-left">Account Settings</span>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+            <button onClick={() => setShowPrivacy(true)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
+              <Shield className="w-4 h-4 text-blue-400" />
+              <span className="text-sm text-slate-300 flex-1 text-left">Privacy & Security</span>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+            <button onClick={() => setShowHelp(true)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
+              <HelpCircle className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm text-slate-300 flex-1 text-left">Help & Support</span>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+            <button onClick={() => setShowTerms(true)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
+              <FileText className="w-4 h-4 text-slate-400" />
+              <span className="text-sm text-slate-300 flex-1 text-left">Terms & Policies</span>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
           </div>
 
           {/* Sign Out */}

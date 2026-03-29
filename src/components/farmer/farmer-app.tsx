@@ -572,6 +572,10 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [showBankModal, setShowBankModal] = useState<'edit' | 'add' | null>(null);
+  const [showCancelSub, setShowCancelSub] = useState(false);
+  const [showUpdatePayment, setShowUpdatePayment] = useState(false);
+  const [activatingFeature, setActivatingFeature] = useState<{ name: string; price: number; period: string } | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [productPhoto, setProductPhoto] = useState<string | null>(null);
   const [aiDescription, setAiDescription] = useState('');
@@ -1059,7 +1063,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
                     <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{feat.desc}</p>
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-sm font-bold text-white">${feat.price}<span className="text-xs text-slate-500 font-normal ml-0.5">{feat.period}</span></span>
-                      <button onClick={() => showToast(`${feat.name} activated! 🚀`)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:brightness-110" style={{ backgroundColor: feat.color + '20', color: feat.color }}>
+                      <button onClick={() => setActivatingFeature({ name: feat.name, price: feat.price, period: feat.period })} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:brightness-110" style={{ backgroundColor: feat.color + '20', color: feat.color }}>
                         Activate
                       </button>
                     </div>
@@ -1120,7 +1124,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
           <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
             <div className="flex items-center justify-between mb-4">
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">🏦 Bank Account</div>
-              <button onClick={() => showToast('Bank account settings opened')} className="text-xs text-orange-400 hover:text-orange-300">Edit</button>
+              <button onClick={() => setShowBankModal('edit')} className="text-xs text-orange-400 hover:text-orange-300">Edit</button>
             </div>
             <div className="bg-surface-800 rounded-xl p-4">
               <div className="flex items-center gap-3">
@@ -1134,10 +1138,10 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
               </div>
             </div>
             <div className="flex gap-2 mt-3">
-              <button onClick={() => showToast('Add new bank account')} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 text-sm text-slate-300 hover:bg-white/10 transition-all text-center">
+              <button onClick={() => setShowBankModal('add')} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 text-sm text-slate-300 hover:bg-white/10 transition-all text-center">
                 <Plus className="w-3 h-3 inline mr-1" /> Add Account
               </button>
-              <button onClick={() => showToast('Manage payment methods')} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 text-sm text-slate-300 hover:bg-white/10 transition-all text-center">
+              <button onClick={() => setShowUpdatePayment(true)} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 text-sm text-slate-300 hover:bg-white/10 transition-all text-center">
                 <CreditCard className="w-3 h-3 inline mr-1" /> Cards
               </button>
             </div>
@@ -1166,10 +1170,10 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
                 ))}
               </div>
               <div className="flex gap-2 mt-4">
-                <button onClick={() => showToast('Payment method updated')} className="flex-1 px-3 py-2 rounded-lg bg-white/5 text-xs text-slate-300 hover:bg-white/10 transition-all">
+                <button onClick={() => setShowUpdatePayment(true)} className="flex-1 px-3 py-2 rounded-lg bg-white/5 text-xs text-slate-300 hover:bg-white/10 transition-all">
                   <CreditCard className="w-3 h-3 inline mr-1" /> Update Payment
                 </button>
-                <button onClick={() => showToast('Contact support to cancel', 'info')} className="px-3 py-2 rounded-lg text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/5 transition-all">
+                <button onClick={() => setShowCancelSub(true)} className="px-3 py-2 rounded-lg text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/5 transition-all">
                   Cancel
                 </button>
               </div>
@@ -1220,6 +1224,112 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
 
       {/* ===== SETTINGS ===== */}
       {activeTab === 'settings' && <SettingsSection role="farmer" detectedState={farmer.address?.state || 'FL'} />}
+
+      {/* ===== MARKETING ACTIVATION CONFIRM ===== */}
+      <Modal open={!!activatingFeature} onClose={() => setActivatingFeature(null)} variant="dialog" maxWidth="max-w-sm">
+        {activatingFeature && (
+          <div className="p-6 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
+              <Rocket className="w-7 h-7 text-orange-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-1">Activate Feature?</h3>
+            <p className="text-sm text-slate-400 mb-4">{activatingFeature.name}</p>
+            <div className="bg-surface-800 rounded-xl p-4 mb-4">
+              <span className="text-2xl font-bold text-white">${activatingFeature.price}</span>
+              <span className="text-sm text-slate-500 ml-1">{activatingFeature.period}</span>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">Charged to your Visa •••• 4242. You can cancel anytime.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setActivatingFeature(null)} className="flex-1 px-4 py-3 rounded-2xl bg-white/5 text-slate-300 font-medium hover:bg-white/10 transition-all active:scale-[0.97]">Cancel</button>
+              <button onClick={() => { showToast(`${activatingFeature.name} activated! 🚀`); setActivatingFeature(null); }}
+                className="flex-1 px-4 py-3 rounded-2xl bg-orange-600 text-white font-semibold hover:bg-orange-500 transition-all active:scale-[0.97]">Activate</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ===== BANK ACCOUNT MODAL ===== */}
+      <Modal open={!!showBankModal} onClose={() => setShowBankModal(null)} title={showBankModal === 'edit' ? 'Edit Bank Account' : 'Add Bank Account'}>
+        <div className="p-6 space-y-4">
+          {showBankModal === 'edit' && (
+            <div className="bg-surface-800 rounded-xl p-4 flex items-center gap-3 mb-2">
+              <Landmark className="w-5 h-5 text-blue-400" />
+              <div className="flex-1"><div className="text-sm text-white">Chase Bank •••• 4821</div><div className="text-xs text-slate-500">Current default</div></div>
+              <span className="badge bg-emerald-500/15 text-emerald-400">Verified</span>
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Account Holder Name</label>
+            <input defaultValue={farmer.name} className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-orange-500/30" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Routing Number</label>
+            <input placeholder="021000021" className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono focus:outline-none focus:border-orange-500/30" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Account Number</label>
+            <input placeholder="•••• •••• 4821" type="password" className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono focus:outline-none focus:border-orange-500/30" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Account Type</label>
+            <div className="flex gap-2">
+              <button className="flex-1 py-2.5 rounded-xl bg-orange-500/15 text-orange-400 border border-orange-500/20 text-sm font-medium">Checking</button>
+              <button className="flex-1 py-2.5 rounded-xl bg-surface-800 text-slate-500 border border-white/5 text-sm">Savings</button>
+            </div>
+          </div>
+          <button onClick={() => { showToast(showBankModal === 'edit' ? 'Bank account updated!' : 'Bank account added!'); setShowBankModal(null); }}
+            className="w-full btn-primary bg-orange-600">{showBankModal === 'edit' ? 'Save Changes' : 'Add Bank Account'}</button>
+          <p className="text-[10px] text-slate-600 text-center flex items-center justify-center gap-1"><Shield className="w-3 h-3" /> Bank-level encryption • PCI DSS compliant</p>
+          {showBankModal === 'edit' && (
+            <button onClick={() => { showToast('Bank account removed'); setShowBankModal(null); }} className="w-full py-2 text-sm text-red-400/50 hover:text-red-400">Remove this account</button>
+          )}
+        </div>
+      </Modal>
+
+      {/* ===== UPDATE PAYMENT MODAL ===== */}
+      <Modal open={showUpdatePayment} onClose={() => setShowUpdatePayment(false)} title="Payment Methods">
+        <div className="p-6 space-y-4">
+          <button className="w-full text-left bg-surface-800 rounded-xl p-4 flex items-center gap-3 border border-white/5 hover:border-white/10 transition-all">
+            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center"><CreditCard className="w-5 h-5 text-blue-400" /></div>
+            <div className="flex-1"><div className="text-sm text-white">Visa •••• 4242</div><div className="text-xs text-slate-500">Expires 12/28</div></div>
+            <span className="badge bg-blue-500/15 text-blue-400">Default</span>
+          </button>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Add New Card</label>
+            <input placeholder="Card number" className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono focus:outline-none focus:border-orange-500/30 mb-2" />
+            <div className="grid grid-cols-3 gap-2">
+              <input placeholder="MM/YY" className="px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-orange-500/30" />
+              <input placeholder="CVV" type="password" className="px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-orange-500/30" />
+              <input placeholder="ZIP" className="px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-orange-500/30" />
+            </div>
+          </div>
+          <button onClick={() => { showToast('Payment method saved!'); setShowUpdatePayment(false); }}
+            className="w-full btn-primary bg-orange-600">Save Card</button>
+          <p className="text-[10px] text-slate-600 text-center flex items-center justify-center gap-1"><Shield className="w-3 h-3" /> Encrypted with 256-bit SSL</p>
+        </div>
+      </Modal>
+
+      {/* ===== CANCEL SUBSCRIPTION MODAL ===== */}
+      <Modal open={showCancelSub} onClose={() => setShowCancelSub(false)} variant="dialog" maxWidth="max-w-sm">
+        <div className="p-6 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-7 h-7 text-red-400" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-2">Cancel Growth Plan?</h3>
+          <p className="text-sm text-slate-400 mb-2">Your subscription will remain active until the end of the current billing period (Apr 26, 2026).</p>
+          <div className="bg-surface-800 rounded-xl p-3 mb-4 text-left">
+            <div className="text-xs font-bold text-red-400 mb-1">You will lose:</div>
+            {['Unlimited products', 'Featured storefront badge', 'Priority search listing', 'AI product descriptions', 'Advanced analytics'].map((f) => (
+              <div key={f} className="flex items-center gap-2 text-xs text-slate-400"><X className="w-3 h-3 text-red-400" />{f}</div>
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => setShowCancelSub(false)} className="flex-1 px-4 py-3 rounded-2xl bg-white/5 text-slate-300 font-medium hover:bg-white/10 transition-all active:scale-[0.97]">Keep Plan</button>
+            <button onClick={() => { showToast('Subscription cancelled — active until Apr 26', 'info'); setShowCancelSub(false); }}
+              className="flex-1 px-4 py-3 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-all active:scale-[0.97]">Cancel Plan</button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ===== ADD/EDIT PRODUCT MODAL WITH AI ===== */}
       <Modal open={showAddProduct} onClose={closeModal} title={editingProductId ? 'Edit Product' : 'Add Product'}>

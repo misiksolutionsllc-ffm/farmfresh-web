@@ -7,9 +7,9 @@ import { Modal } from '@/components/ui/modal';
 import { ProgressBar } from '@/components/ui/charts';
 import {
   EditProfileModal, LoyaltyModal, AddressModal, PaymentModal,
-  DietaryModal, NotificationSettingsModal, AccountSettingsModal,
-  PrivacyModal, HelpModal, TermsModal, SignOutModal,
+  DietaryModal,
 } from '@/components/customer/profile-modals';
+import { SettingsSection } from '@/components/ui/shared-settings';
 import { cn, formatCurrency, getStatusColor, formatDate, formatRelativeTime } from '@/lib/utils';
 import { Product, OrderItem } from '@/lib/store';
 import {
@@ -46,12 +46,10 @@ export function CustomerApp() {
   const [showAddress, setShowAddress] = useState<'add' | 'edit' | null>(null);
   const [showPayment, setShowPayment] = useState<'add' | 'visa' | 'apple' | null>(null);
   const [showDietary, setShowDietary] = useState(false);
-  const [showNotifSettings, setShowNotifSettings] = useState(false);
-  const [showAccountSettings, setShowAccountSettings] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const [showSignOut, setShowSignOut] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [reviewingOrder, setReviewingOrder] = useState<string | null>(null);
+  const [reviewStars, setReviewStars] = useState(5);
+  const [reviewText, setReviewText] = useState('');
 
   const currentUser = db.users.find((u) => u.id === currentUserId);
   const products = db.products.filter((p) => p.status === 'active');
@@ -170,6 +168,12 @@ export function CustomerApp() {
                     {product.stock > 0 && product.stock <= 5 && (
                       <span className="absolute top-2 right-2 badge bg-amber-500/20 text-amber-400 animate-pulse">{product.stock} left</span>
                     )}
+                    {product.stock === 0 || product.stock > 5 ? (
+                      <button onClick={(e) => { e.stopPropagation(); currentUserId && dispatch({ type: 'TOGGLE_FAVORITE', userId: currentUserId, productId: product.id }); }}
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-surface-900/80 backdrop-blur-sm flex items-center justify-center hover:bg-surface-900 transition-all active:scale-90">
+                        <Heart className={cn('w-4 h-4', (currentUser?.favorites || []).includes(product.id) ? 'text-red-400 fill-red-400' : 'text-slate-400')} />
+                      </button>
+                    ) : null}
                     {/* Quick add overlay */}
                     {product.stock > 0 && !inCart && (
                       <div className="absolute inset-0 bg-emerald-500/0 group-hover:bg-emerald-500/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -282,7 +286,8 @@ export function CustomerApp() {
               {myOrders.map((order, i) => {
                 const stepIdx = statusSteps.indexOf(order.status);
                 return (
-                  <div key={order.id} className="bg-surface-800/50 border border-white/5 rounded-2xl p-5 animate-fade-in-up hover:border-white/10 transition-all" style={{ animationDelay: `${i * 60}ms` }}>
+                  <div key={order.id} onClick={() => setSelectedOrder(order.id)}
+                    className="bg-surface-800/50 border border-white/5 rounded-2xl p-5 animate-fade-in-up hover:border-white/10 transition-all cursor-pointer active:scale-[0.99]" style={{ animationDelay: `${i * 60}ms` }}>
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <span className="text-xs text-slate-500 font-mono">#{order.id.slice(-6).toUpperCase()}</span>
@@ -290,32 +295,24 @@ export function CustomerApp() {
                       </div>
                       <span className={cn('badge', getStatusColor(order.status))}>{order.status}</span>
                     </div>
-                    {/* Progress tracker */}
                     {order.status !== 'Cancelled' && (
                       <div className="flex items-center gap-1 mb-4">
                         {statusSteps.map((step, si) => (
-                          <div key={step} className="flex-1 flex items-center">
-                            <div className={cn('w-full h-1.5 rounded-full transition-all duration-500', si <= stepIdx ? 'bg-emerald-500' : 'bg-white/5')}
-                              style={si <= stepIdx ? { animationDelay: `${si * 150}ms` } : {}} />
-                          </div>
+                          <div key={step} className="flex-1"><div className={cn('w-full h-1.5 rounded-full', si <= stepIdx ? 'bg-emerald-500' : 'bg-white/5')} /></div>
                         ))}
                       </div>
                     )}
-                    {/* Items */}
                     <div className="flex flex-wrap gap-2 mb-3">
                       {order.items.map((item) => (
                         <div key={item.id} className="flex items-center gap-2 px-3 py-1.5 bg-surface-900 rounded-lg">
-                          {item.image.startsWith('data:') ? <img src={item.image} alt="" className="w-5 h-5 rounded object-cover" /> : <span>{item.image}</span>}
+                          {item.image?.startsWith?.('data:') ? <img src={item.image} alt="" className="w-5 h-5 rounded object-cover" /> : <span>{item.image}</span>}
                           <span className="text-xs text-slate-300">{item.name} × {item.qty}</span>
                         </div>
                       ))}
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-lg font-bold text-white">{formatCurrency(order.total)}</span>
-                      {(order.status === 'Pending' || order.status === 'Processing') && (
-                        <button onClick={() => { dispatch({ type: 'CANCEL_ORDER', orderId: order.id, customerId: currentUserId!, reason: 'Cancelled by customer' }); showToast('Order cancelled'); }}
-                          className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/5 transition-all">Cancel</button>
-                      )}
+                      <ChevronRight className="w-4 h-4 text-slate-600" />
                     </div>
                   </div>
                 );
@@ -324,6 +321,141 @@ export function CustomerApp() {
           )}
         </div>
       )}
+
+      {/* ========== ORDER DETAIL MODAL ========== */}
+      {(() => {
+        const od = myOrders.find((o) => o.id === selectedOrder);
+        if (!od) return null;
+        const merchant = db.users.find((u) => u.id === od.merchantId);
+        const stepIdx = statusSteps.indexOf(od.status);
+        return (
+          <Modal open={true} onClose={() => setSelectedOrder(null)} title={`Order #${od.id.slice(-6).toUpperCase()}`}>
+            <div className="p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <span className={cn('badge text-sm', getStatusColor(od.status))}>{od.status}</span>
+                <span className="text-xs text-slate-500">{formatDate(od.date)}</span>
+              </div>
+              {od.status !== 'Cancelled' && (
+                <div>
+                  <div className="flex items-center gap-1 mb-1.5">
+                    {statusSteps.map((s, si) => (
+                      <div key={s} className="flex-1"><div className={cn('h-2 rounded-full', si <= stepIdx ? 'bg-emerald-500' : 'bg-white/5')} /></div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-[9px] text-slate-600">
+                    {statusSteps.map((s) => <span key={s}>{s}</span>)}
+                  </div>
+                </div>
+              )}
+              {merchant && (
+                <div className="bg-surface-800 rounded-xl p-3 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center"><span className="text-lg">🌾</span></div>
+                  <div>
+                    <div className="text-sm font-medium text-white">{merchant.businessName || merchant.name}</div>
+                    <div className="text-xs text-slate-500">Farmer American Hero</div>
+                  </div>
+                </div>
+              )}
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Items ({od.items.length})</div>
+                {od.items.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
+                    <div className="w-10 h-10 bg-surface-800 rounded-lg flex items-center justify-center overflow-hidden">
+                      {item.image?.startsWith?.('data:') ? <img src={item.image} className="w-full h-full object-cover" /> : <span className="text-lg">{item.image}</span>}
+                    </div>
+                    <div className="flex-1"><div className="text-sm text-white">{item.name}</div><div className="text-xs text-slate-500">Qty: {item.qty} × {formatCurrency(item.price)}</div></div>
+                    <span className="text-sm font-bold text-white">{formatCurrency(item.price * item.qty)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-surface-800 rounded-xl p-4 space-y-2">
+                {[
+                  ['Subtotal', od.fees.subtotal],
+                  ['Delivery', od.fees.delivery],
+                  ['Service Fee', od.fees.platform],
+                  ['Tax', od.fees.tax],
+                  ...(od.fees.tip > 0 ? [['Tip', od.fees.tip]] : []),
+                  ...(od.fees.discount > 0 ? [['Discount', -od.fees.discount]] : []),
+                ].map(([l, v]) => (
+                  <div key={l as string} className="flex justify-between text-xs">
+                    <span className="text-slate-400">{l}</span>
+                    <span className={cn('font-mono', (v as number) < 0 ? 'text-emerald-400' : 'text-white')}>{(v as number) < 0 ? '-' : ''}{formatCurrency(Math.abs(v as number))}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-2 border-t border-white/5">
+                  <span className="font-semibold text-white">Total</span>
+                  <span className="font-bold text-emerald-400">{formatCurrency(od.total)}</span>
+                </div>
+              </div>
+              {currentUser?.address && (
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <MapPin className="w-3 h-3" /> Delivery to: {currentUser.address.street}, {currentUser.address.city}
+                </div>
+              )}
+              {(od.status === 'Pending' || od.status === 'Processing') && (
+                <button onClick={(e) => { e.stopPropagation(); dispatch({ type: 'CANCEL_ORDER', orderId: od.id, customerId: currentUserId!, reason: 'Cancelled by customer' }); showToast('Order cancelled'); setSelectedOrder(null); }}
+                  className="w-full py-3 rounded-2xl border border-red-500/20 text-red-400 text-sm hover:bg-red-500/5 transition-all">Cancel Order</button>
+              )}
+              {od.status === 'Delivered' && (
+                <button onClick={() => { setReviewingOrder(od.id); setSelectedOrder(null); setReviewStars(5); setReviewText(''); }}
+                  className="w-full btn-primary bg-emerald-600 text-sm flex items-center justify-center gap-2">
+                  <Star className="w-4 h-4" /> Rate this Order
+                </button>
+              )}
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* ========== REVIEW ORDER MODAL ========== */}
+      {(() => {
+        const ro = myOrders.find((o) => o.id === reviewingOrder);
+        if (!ro) return null;
+        const submitReview = () => {
+          ro.items.forEach((item) => {
+            dispatch({ type: 'ADD_REVIEW', payload: { productId: item.id, customerId: currentUserId!, customerName: currentUser?.name || 'Customer', rating: reviewStars, comment: reviewText || 'Great product!' } });
+          });
+          showToast('Review submitted! Thank you! ⭐');
+          setReviewingOrder(null);
+        };
+        return (
+          <Modal open={true} onClose={() => setReviewingOrder(null)} title="Rate Your Order">
+            <div className="p-6 space-y-5">
+              <div className="text-center">
+                <p className="text-sm text-slate-400 mb-4">How was your order from <span className="text-white font-semibold">{db.users.find((u) => u.id === ro.merchantId)?.businessName || 'the farm'}</span>?</p>
+                {/* Star Rating */}
+                <div className="flex justify-center gap-2 mb-2">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button key={s} onClick={() => setReviewStars(s)} className="p-1 transition-transform hover:scale-110 active:scale-95">
+                      <Star className={cn('w-9 h-9 transition-colors', s <= reviewStars ? 'text-amber-400 fill-amber-400' : 'text-slate-700')} />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-sm text-slate-500">{reviewStars === 5 ? 'Excellent!' : reviewStars === 4 ? 'Great!' : reviewStars === 3 ? 'Good' : reviewStars === 2 ? 'Fair' : 'Poor'}</p>
+              </div>
+
+              {/* Items reviewed */}
+              <div className="flex flex-wrap gap-2">
+                {ro.items.map((item) => (
+                  <div key={item.id} className="flex items-center gap-2 px-3 py-2 bg-surface-800 rounded-xl">
+                    {item.image?.startsWith?.('data:') ? <img src={item.image} className="w-6 h-6 rounded object-cover" /> : <span className="text-sm">{item.image}</span>}
+                    <span className="text-xs text-slate-300">{item.name}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Review text */}
+              <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)}
+                placeholder="Tell us about your experience... (optional)"
+                className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white text-sm resize-none h-24 focus:outline-none focus:border-emerald-500/30 placeholder-slate-600" />
+
+              <button onClick={submitReview} className="w-full btn-primary bg-emerald-600 text-sm flex items-center justify-center gap-2">
+                <Check className="w-4 h-4" /> Submit Review
+              </button>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* ========== FAVORITES TAB ========== */}
       {activeTab === 'favorites' && (
@@ -335,7 +467,7 @@ export function CustomerApp() {
             return (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                 {favProducts.map((p, i) => (
-                  <div key={p.id} className="bg-surface-800/50 border border-white/5 rounded-2xl p-4 text-center card-hover animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                  <div key={p.id} onClick={() => setSelectedProduct(p)} className="bg-surface-800/50 border border-white/5 rounded-2xl p-4 text-center card-hover animate-fade-in-up cursor-pointer" style={{ animationDelay: `${i * 60}ms` }}>
                     {p.image.startsWith('data:') ? (
                       <img src={p.image} alt={p.name} className="w-16 h-16 rounded-xl object-cover mx-auto mb-2" />
                     ) : (
@@ -343,7 +475,7 @@ export function CustomerApp() {
                     )}
                     <h3 className="text-sm font-semibold text-white truncate">{p.name}</h3>
                     <p className="text-emerald-400 font-bold mt-1">{formatCurrency(p.price)}</p>
-                    <button onClick={() => addToCart(p)} className="w-full mt-3 py-2 text-xs font-medium rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">Add to Cart</button>
+                    <button onClick={(e) => { e.stopPropagation(); addToCart(p); }} className="w-full mt-3 py-2 text-xs font-medium rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">Add to Cart</button>
                   </div>
                 ))}
               </div>
@@ -425,7 +557,7 @@ export function CustomerApp() {
                 <button onClick={() => { navigator.clipboard?.writeText(currentUser.referralCode || '').then(() => showToast('Code copied!')).catch(() => showToast('Code: ' + (currentUser.referralCode || 'N/A'), 'info')); }}
                   className="p-1 text-slate-500 hover:text-white"><Copy className="w-3.5 h-3.5" /></button>
               </div>
-              <button onClick={() => showToast('Share link copied!')} className="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-all active:scale-[0.97]">
+              <button onClick={() => { const url = `https://farmfresh-web-pi.vercel.app/?ref=${currentUser.referralCode || ''}`; if (navigator.share) { navigator.share({ title: 'Join FarmFresh Hub!', text: 'Get $5 off your first order of natural, farm-fresh food!', url }).catch(() => {}); } else { navigator.clipboard?.writeText(url).then(() => showToast('Share link copied!')).catch(() => showToast(url, 'info')); } }} className="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-all active:scale-[0.97]">
                 <Share2 className="w-4 h-4" />
               </button>
             </div>
@@ -548,66 +680,8 @@ export function CustomerApp() {
             </div>
           </div>
 
-          {/* Notification Preferences */}
-          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '700ms' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Bell className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-semibold text-white">Notifications</span>
-            </div>
-            {[
-              { label: 'Order updates', desc: 'Status changes, delivery alerts', on: true },
-              { label: 'Promotions', desc: 'Deals, new products, seasonal offers', on: true },
-              { label: 'Price drops', desc: 'Alerts when saved items go on sale', on: false },
-            ].map((n) => (
-              <button key={n.label} onClick={() => setShowNotifSettings(true)}
-                className="w-full flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-all rounded-lg px-1">
-                <div>
-                  <div className="text-sm text-white">{n.label}</div>
-                  <div className="text-xs text-slate-500">{n.desc}</div>
-                </div>
-                <div className={cn('w-10 h-6 rounded-full flex items-center transition-all px-0.5', n.on ? 'bg-emerald-500 justify-end' : 'bg-surface-900 justify-start')}>
-                  <div className="w-5 h-5 rounded-full bg-white shadow-sm" />
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Settings Menu */}
-          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl overflow-hidden animate-fade-in-up" style={{ animationDelay: '800ms' }}>
-            <button onClick={() => setShowAccountSettings(true)}
-              className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
-              <Settings className="w-4 h-4 text-slate-400" />
-              <span className="text-sm text-slate-300 flex-1 text-left">Account Settings</span>
-              <ChevronRight className="w-4 h-4 text-slate-600" />
-            </button>
-            <button onClick={() => setShowPrivacy(true)}
-              className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
-              <Shield className="w-4 h-4 text-blue-400" />
-              <span className="text-sm text-slate-300 flex-1 text-left">Privacy & Security</span>
-              <ChevronRight className="w-4 h-4 text-slate-600" />
-            </button>
-            <button onClick={() => setShowHelp(true)}
-              className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
-              <HelpCircle className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm text-slate-300 flex-1 text-left">Help & Support</span>
-              <ChevronRight className="w-4 h-4 text-slate-600" />
-            </button>
-            <button onClick={() => setShowTerms(true)}
-              className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.02] transition-all active:bg-white/[0.04]">
-              <FileText className="w-4 h-4 text-slate-400" />
-              <span className="text-sm text-slate-300 flex-1 text-left">Terms & Policies</span>
-              <ChevronRight className="w-4 h-4 text-slate-600" />
-            </button>
-          </div>
-
-          {/* Sign Out */}
-          <button onClick={() => setShowSignOut(true)}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-red-500/10 text-red-400/70 hover:text-red-400 hover:bg-red-500/5 transition-all animate-fade-in-up active:scale-[0.98]" style={{ animationDelay: '900ms' }}>
-            <LogOut className="w-4 h-4" />
-            <span className="text-sm font-medium">Sign Out</span>
-          </button>
-
-          <p className="text-center text-[10px] text-slate-700 pb-4">FarmFresh Hub v1.0 • Made with 🌿 in Florida</p>
+          {/* Settings, Legal, Privacy, Help, Sign Out */}
+          <SettingsSection role="customer" detectedState={currentUser.address?.state || 'FL'} />
         </div>
       )}
 
@@ -689,18 +763,12 @@ export function CustomerApp() {
         )}
       </Modal>
 
-      {/* ========== PROFILE WORKFLOW MODALS ========== */}
+      {/* ========== CONSUMER-SPECIFIC PROFILE MODALS ========== */}
       <EditProfileModal open={showEditProfile} onClose={() => setShowEditProfile(false)} />
       <LoyaltyModal open={showLoyalty} onClose={() => setShowLoyalty(false)} />
       <AddressModal open={!!showAddress} onClose={() => setShowAddress(null)} editMode={showAddress === 'edit'} />
       <PaymentModal open={!!showPayment} onClose={() => setShowPayment(null)} mode={showPayment || 'add'} />
       <DietaryModal open={showDietary} onClose={() => setShowDietary(false)} />
-      <NotificationSettingsModal open={showNotifSettings} onClose={() => setShowNotifSettings(false)} />
-      <AccountSettingsModal open={showAccountSettings} onClose={() => setShowAccountSettings(false)} />
-      <PrivacyModal open={showPrivacy} onClose={() => setShowPrivacy(false)} />
-      <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
-      <TermsModal open={showTerms} onClose={() => setShowTerms(false)} />
-      <SignOutModal open={showSignOut} onClose={() => setShowSignOut(false)} />
     </AppShell>
   );
 }

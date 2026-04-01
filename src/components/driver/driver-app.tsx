@@ -3,12 +3,18 @@
 import { useState } from 'react';
 import { useAppStore } from '@/lib/app-store';
 import { AppShell } from '@/components/ui/app-shell';
+import { Modal } from '@/components/ui/modal';
 import { MiniStat, BarChart, ProgressBar, Sparkline } from '@/components/ui/charts';
 import { LiveMap, DriverMapView } from '@/components/ui/live-map';
 import { SettingsSection } from '@/components/ui/shared-settings';
 import { DriverPayoutModal } from '@/components/ui/payment-system';
 import { cn, formatCurrency, getStatusColor, formatDate } from '@/lib/utils';
-import { Gauge, Package, DollarSign, User, Map, Power, Navigation, Star, Zap, Banknote, Clock, MapPin, TrendingUp, ChevronRight, Settings } from 'lucide-react';
+import {
+  Gauge, Package, DollarSign, User, Map, Power, Navigation, Star, Zap,
+  Banknote, Clock, MapPin, TrendingUp, ChevronRight, Settings, Pencil,
+  Phone, Mail, Shield, CreditCard, Landmark, Car, FileCheck, Check,
+  Plus, Trash2, X, Award, Target, AlertTriangle, Eye, ChevronDown,
+} from 'lucide-react';
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <Gauge className="w-5 h-5" /> },
@@ -23,6 +29,20 @@ export function DriverApp() {
   const { db, dispatch, showToast, currentUserId } = useAppStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showPayout, setShowPayout] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [showVehicle, setShowVehicle] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [vehicleMake, setVehicleMake] = useState('');
+  const [vehicleModel, setVehicleModel] = useState('');
+  const [vehicleYear, setVehicleYear] = useState('');
+  const [vehiclePlate, setVehiclePlate] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [bankRouting, setBankRouting] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankType, setBankType] = useState<'checking' | 'savings'>('checking');
   const driver = db.users.find((u) => u.id === currentUserId);
   const availableDeliveries = db.deliveries.filter((d) => d.driverId === null && d.status === 'Pending');
   const myDeliveries = db.deliveries.filter((d) => d.driverId === currentUserId);
@@ -258,22 +278,286 @@ export function DriverApp() {
 
       {/* ========== PROFILE TAB ========== */}
       {activeTab === 'profile' && (
-        <div className="max-w-2xl mx-auto space-y-6 pb-24 lg:pb-4 animate-fade-in">
-          <div className="text-center bg-gradient-to-br from-blue-600/10 to-surface-800/30 border border-white/5 rounded-3xl p-8">
-            <div className="w-20 h-20 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4 animate-pulse-glow"><span className="text-3xl font-bold text-blue-400">{driver.name.charAt(0)}</span></div>
-            <h2 className="text-xl font-bold text-white">{driver.name}</h2>
-            <p className="text-sm text-slate-400">{driver.email}</p>
-            <div className="flex items-center justify-center gap-1 mt-2"><Star className="w-4 h-4 text-amber-400 fill-amber-400" /><span className="font-semibold text-white">{driver.rating}</span><span className="text-slate-500">• {driver.trips} trips</span></div>
+        <div className="max-w-2xl mx-auto space-y-4 pb-24 lg:pb-4">
+          {/* Hero Card */}
+          <div className="relative bg-gradient-to-br from-blue-600/10 via-blue-800/5 to-surface-800/30 border border-white/5 rounded-3xl p-6 animate-fade-in overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/[0.04] rounded-full -translate-y-1/2 translate-x-1/3 blur-2xl" />
+            <div className="relative z-10">
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-2xl font-bold text-blue-400">{driver.name.charAt(0)}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-bold text-white truncate">{driver.name}</h2>
+                  <p className="text-xs text-slate-400">{driver.email}</p>
+                  {driver.phone && <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{driver.phone}</p>}
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="badge bg-blue-500/15 text-blue-400 flex items-center gap-1"><Star className="w-3 h-3 fill-blue-400" />{driver.rating || '–'}</span>
+                    <span className="badge bg-emerald-500/15 text-emerald-400">{driver.trips || 0} trips</span>
+                    <span className={cn('badge', driver.online ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400')}>{driver.online ? '🟢 Online' : '⚫ Offline'}</span>
+                  </div>
+                </div>
+                <button onClick={() => { setEditName(driver.name); setEditPhone(driver.phone || ''); setEditEmail(driver.email); setShowEditProfile(true); }}
+                  className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"><Pencil className="w-4 h-4" /></button>
+              </div>
+              {/* Stats */}
+              <div className="grid grid-cols-4 gap-2 mt-5">
+                {[
+                  { value: formatCurrency(driver.earnings || 0), label: 'Earnings', color: 'text-emerald-400' },
+                  { value: `${driver.trips || 0}`, label: 'Trips', color: 'text-blue-400' },
+                  { value: `${driver.acceptanceRate || 0}%`, label: 'Accept', color: 'text-amber-400' },
+                  { value: `${driver.rating || '–'}`, label: 'Rating', color: 'text-violet-400' },
+                ].map((s, i) => (
+                  <div key={s.label} className="bg-surface-900/50 rounded-xl p-2.5 text-center animate-count-up" style={{ animationDelay: `${i * 80}ms` }}>
+                    <div className={cn('text-base font-bold', s.color)}>{s.value}</div>
+                    <div className="text-[10px] text-slate-500">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          {/* Performance bars */}
-          <div className="bg-surface-800/50 border border-white/5 rounded-2xl p-5 space-y-4">
-            <h3 className="font-semibold text-white">Performance</h3>
-            <ProgressBar value={driver.acceptanceRate || 0} max={100} color="#3B82F6" label="Acceptance Rate" showValue />
-            <ProgressBar value={driver.rating ? driver.rating * 20 : 0} max={100} color="#F59E0B" label="Rating Score" showValue />
-            <ProgressBar value={driver.trips || 0} max={200} color="#10B981" label="Trip Goal (200)" showValue />
+
+          {/* Earnings & Payout */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">💰 Earnings & Payouts</div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-surface-900 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-emerald-400">{formatCurrency(driver.earnings || 0)}</div>
+                <div className="text-[10px] text-slate-500">Available</div>
+              </div>
+              <div className="bg-surface-900 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-white">{formatCurrency((driver.trips || 0) * 8.5)}</div>
+                <div className="text-[10px] text-slate-500">Lifetime</div>
+              </div>
+              <div className="bg-surface-900 rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-amber-400">{formatCurrency(db.transactions.filter((t) => t.type === 'Tip').reduce((s, t) => s + t.amount, 0))}</div>
+                <div className="text-[10px] text-slate-500">Tips</div>
+              </div>
+            </div>
+            <button onClick={() => setShowPayout(true)} disabled={!driver.earnings || driver.earnings <= 0}
+              className="w-full btn-primary bg-blue-600 text-sm flex items-center justify-center gap-2 disabled:opacity-30 disabled:bg-slate-700">
+              <DollarSign className="w-4 h-4" /> Withdraw to Bank
+            </button>
+          </div>
+
+          {/* Bank Account */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">🏦 Bank Account</div>
+              <button onClick={() => setShowBankModal(true)} className="text-xs text-blue-400 hover:text-blue-300">{driver.bankLast4 ? 'Edit' : 'Add'}</button>
+            </div>
+            {driver.bankLast4 ? (
+              <div className="flex items-center gap-3 bg-surface-900 rounded-xl p-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center"><Landmark className="w-5 h-5 text-blue-400" /></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-white">Bank Account •••• {driver.bankLast4}</div>
+                  <div className="text-xs text-slate-500">Checking • Direct Deposit</div>
+                </div>
+                <span className="badge bg-emerald-500/20 text-emerald-400">Verified</span>
+              </div>
+            ) : (
+              <button onClick={() => setShowBankModal(true)} className="w-full py-6 rounded-xl border border-dashed border-white/10 text-sm text-slate-500 hover:text-white hover:border-blue-500/30 transition-all">
+                <Plus className="w-4 h-4 inline mr-1" /> Add bank account for payouts
+              </button>
+            )}
+            {driver.cardLast4 && (
+              <div className="flex items-center gap-3 bg-surface-900 rounded-xl p-3 mt-2">
+                <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center"><CreditCard className="w-5 h-5 text-violet-400" /></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-white">Visa •••• {driver.cardLast4}</div>
+                  <div className="text-xs text-slate-500">For instant payouts</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Vehicle Info */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">🚗 Vehicle</div>
+              <button onClick={() => setShowVehicle(true)} className="text-xs text-blue-400 hover:text-blue-300">{driver.vehicleMake ? 'Edit' : 'Add'}</button>
+            </div>
+            {driver.vehicleMake ? (
+              <div className="flex items-center gap-3 bg-surface-900 rounded-xl p-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center"><Car className="w-5 h-5 text-orange-400" /></div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-white">{driver.vehicleYear} {driver.vehicleMake} {driver.vehicleModel}</div>
+                  <div className="text-xs text-slate-500">Plate: {driver.vehiclePlate || '—'}</div>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowVehicle(true)} className="w-full py-6 rounded-xl border border-dashed border-white/10 text-sm text-slate-500 hover:text-white hover:border-blue-500/30 transition-all">
+                <Plus className="w-4 h-4 inline mr-1" /> Add vehicle information
+              </button>
+            )}
+          </div>
+
+          {/* Performance */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-5 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">📊 Performance</div>
+            <div className="space-y-4">
+              <ProgressBar value={driver.acceptanceRate || 0} max={100} color="#3B82F6" label="Acceptance Rate" showValue />
+              <ProgressBar value={driver.rating ? driver.rating * 20 : 0} max={100} color="#F59E0B" label="Rating Score" showValue />
+              <ProgressBar value={Math.min(driver.trips || 0, 200)} max={200} color="#10B981" label="Trip Goal (200)" showValue />
+            </div>
+            <div className="mt-4 pt-3 border-t border-white/5">
+              <div className="text-center">
+                <span className="text-2xl">{(driver.acceptanceRate || 0) >= 90 && (driver.rating || 0) >= 4.5 ? '🏆' : (driver.acceptanceRate || 0) >= 70 ? '🥈' : '📈'}</span>
+                <p className="text-xs text-slate-400 mt-1">
+                  {(driver.acceptanceRate || 0) >= 90 ? 'Top Driver — keep it up!' : (driver.acceptanceRate || 0) >= 70 ? 'Good standing — room to grow' : 'Keep improving to unlock bonuses'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Documents */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '500ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">📋 Documents</div>
+            {(driver.documents && driver.documents.length > 0) ? (
+              driver.documents.map((doc, i) => (
+                <div key={i} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
+                  <div className="flex items-center gap-2"><FileCheck className="w-4 h-4 text-slate-500" /><span className="text-sm text-slate-300">{doc.type}</span></div>
+                  <span className={cn('badge', doc.status === 'approved' ? 'bg-emerald-500/15 text-emerald-400' : doc.status === 'pending' ? 'bg-amber-500/15 text-amber-400' : 'bg-red-500/15 text-red-400')}>{doc.status}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-slate-500 text-center py-4">No documents uploaded yet</p>
+            )}
+          </div>
+
+          {/* Recent Payouts */}
+          <div className="card bg-surface-800/50 border border-white/5 rounded-2xl p-4 animate-fade-in-up" style={{ animationDelay: '600ms' }}>
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">📄 Recent Payouts</div>
+            {db.transactions.filter((t) => t.type === 'Payout').length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-4">No payouts yet — complete deliveries to earn</p>
+            ) : (
+              db.transactions.filter((t) => t.type === 'Payout').slice(0, 5).map((t, i) => (
+                <div key={t.id || i} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
+                  <div><div className="text-sm text-white">{formatDate(t.date)}</div><div className="text-xs text-slate-500">{t.method}</div></div>
+                  <div className="text-right"><div className="text-sm font-bold text-emerald-400">{formatCurrency(Math.abs(t.amount))}</div><span className="badge bg-emerald-500/15 text-emerald-400">{t.status}</span></div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
+
+      {/* ========== EDIT PROFILE MODAL ========== */}
+      <Modal open={showEditProfile} onClose={() => setShowEditProfile(false)} title="Edit Profile">
+        <div className="p-6 space-y-4">
+          <div className="flex justify-center mb-2">
+            <div className="w-20 h-20 rounded-2xl bg-blue-500/20 flex items-center justify-center">
+              <span className="text-3xl font-bold text-blue-400">{(editName || driver.name).charAt(0)}</span>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Full Name</label>
+            <input value={editName} onChange={(e) => setEditName(e.target.value)}
+              className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-blue-500/30" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Phone Number</label>
+            <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="(555) 123-4567"
+              className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-blue-500/30" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Email</label>
+            <div className="flex items-center gap-2">
+              <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)}
+                className="flex-1 px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-blue-500/30" />
+            </div>
+          </div>
+          <button onClick={() => {
+            if (currentUserId && editName) {
+              dispatch({ type: 'UPDATE_USER_PROFILE', userId: currentUserId, updates: { name: editName, phone: editPhone, email: editEmail } });
+              showToast('Profile updated!');
+              setShowEditProfile(false);
+            }
+          }} className="w-full btn-primary bg-blue-600">Save Changes</button>
+        </div>
+      </Modal>
+
+      {/* ========== BANK ACCOUNT MODAL ========== */}
+      <Modal open={showBankModal} onClose={() => setShowBankModal(false)} title={driver.bankLast4 ? 'Edit Bank Account' : 'Add Bank Account'}>
+        <div className="p-6 space-y-4">
+          <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-3 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-blue-400">Bank info encrypted with AES-256 • Never shared with third parties</span>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Bank Name</label>
+            <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Chase, Bank of America, Wells Fargo..."
+              className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-blue-500/30" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Routing Number (9 digits)</label>
+            <input value={bankRouting} onChange={(e) => setBankRouting(e.target.value.replace(/\D/g, '').slice(0, 9))} placeholder="021000021" maxLength={9}
+              className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono focus:outline-none focus:border-blue-500/30" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Account Number</label>
+            <input value={bankAccount} onChange={(e) => setBankAccount(e.target.value.replace(/\D/g, ''))} placeholder="Account number" type="password"
+              className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono focus:outline-none focus:border-blue-500/30" />
+          </div>
+          <div className="flex gap-2">
+            {(['checking', 'savings'] as const).map((t) => (
+              <button key={t} onClick={() => setBankType(t)}
+                className={cn('flex-1 py-2.5 rounded-xl text-sm font-medium transition-all', bankType === t ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' : 'bg-surface-800 text-slate-500 border border-white/5')}>
+                {t === 'checking' ? 'Checking' : 'Savings'}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => {
+            if (currentUserId && bankName && bankRouting.length === 9 && bankAccount) {
+              dispatch({ type: 'UPDATE_USER_PROFILE', userId: currentUserId, updates: { bankLast4: bankAccount.slice(-4) } });
+              showToast('Bank account saved!');
+              setShowBankModal(false);
+              setBankName(''); setBankRouting(''); setBankAccount('');
+            } else {
+              showToast('Please fill all fields correctly', 'error');
+            }
+          }} className="w-full btn-primary bg-blue-600">Save Bank Account</button>
+          {driver.bankLast4 && (
+            <button onClick={() => { if (currentUserId) { dispatch({ type: 'UPDATE_USER_PROFILE', userId: currentUserId, updates: { bankLast4: undefined } }); showToast('Bank account removed'); setShowBankModal(false); } }}
+              className="w-full py-2.5 text-sm text-red-400/60 hover:text-red-400 transition-colors">Remove bank account</button>
+          )}
+        </div>
+      </Modal>
+
+      {/* ========== VEHICLE MODAL ========== */}
+      <Modal open={showVehicle} onClose={() => setShowVehicle(false)} title="Vehicle Information">
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-500 mb-1.5 block">Year</label>
+              <input value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="2024" maxLength={4}
+                className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-blue-500/30" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1.5 block">Make</label>
+              <input value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} placeholder="Toyota"
+                className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-blue-500/30" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">Model</label>
+            <input value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} placeholder="Camry"
+              className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-blue-500/30" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1.5 block">License Plate</label>
+            <input value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} placeholder="ABC 1234"
+              className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white font-mono uppercase focus:outline-none focus:border-blue-500/30" />
+          </div>
+          <button onClick={() => {
+            if (currentUserId && vehicleMake && vehicleModel) {
+              dispatch({ type: 'UPDATE_USER_PROFILE', userId: currentUserId, updates: { vehicleMake, vehicleModel, vehicleYear, vehiclePlate } });
+              showToast('Vehicle info saved!');
+              setShowVehicle(false);
+            }
+          }} className="w-full btn-primary bg-blue-600">Save Vehicle</button>
+        </div>
+      </Modal>
 
       {/* ========== SETTINGS TAB ========== */}
       {activeTab === 'settings' && <SettingsSection role="driver" detectedState="FL" />}

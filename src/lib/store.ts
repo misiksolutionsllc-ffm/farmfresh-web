@@ -112,6 +112,10 @@ export interface User {
   acceptanceRate?: number;
   bankLast4?: string;
   cardLast4?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: string;
+  vehiclePlate?: string;
   revenue?: number;
   description?: string;
   totalSpent?: number; // Total amount spent for loyalty tier

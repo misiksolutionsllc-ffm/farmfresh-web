@@ -472,64 +472,22 @@ export const INITIAL_DB: Database = {
     maintenanceMode: false
   },
   users: [
-    { 
-      id: 'u1', name: 'Alice Consumer', role: 'customer', email: 'alice@test.com', phone: '555-0101', 
-      status: 'active', verified: true, favorites: ['p1'], points: 150, wallet: 0, credits: 10.00,
-      referralCode: 'ALICE10', referralCount: 2,
-      address: { street: "10300 Forest Hill Blvd", city: "Wellington", state: "FL", zip: "33414" },
-      documents: [{ type: 'ID Card', status: 'approved', date: '2023-01-15' }],
-      totalSpent: 450.00, loyaltyTier: 'Silver'
-    },
-    { 
-      id: 'u2', name: 'Mike Racer', role: 'driver', email: 'mike@drive.com', phone: '555-0202',
-      status: 'active', verified: true, rating: 4.9, trips: 145, earnings: 1240.50, online: true, acceptanceRate: 94, bankLast4: '8821', cardLast4: '4242',
-      documents: [
-        { type: 'Driver License', status: 'approved', date: '2023-02-20' },
-        { type: 'Vehicle Insurance', status: 'approved', date: '2023-02-20' }
-      ]
-    },
-    { 
-      id: 'u3', name: 'Green Acres', role: 'farmer', email: 'farm@fresh.com', phone: '555-0303',
-      status: 'active', verified: false, rating: 4.8, revenue: 15400, description: "Family owned since 1985.", 
-      address: { street: "12794 W Forest Hill Blvd", city: "Wellington", state: "FL", zip: "33414" },
-      documents: [
-        { type: 'Business License', status: 'pending', date: '2023-10-01' },
-        { type: 'Food Safety Cert', status: 'approved', date: '2023-01-10' }
-      ]
-    },
-    { id: 'u4', name: 'Admin User', role: 'owner', email: 'admin@platform.com', status: 'active', verified: true }
+    { id: 'u1', name: 'New Customer', role: 'customer', email: 'customer@farmfresh.app', phone: '', status: 'active', verified: false, favorites: [], points: 0, wallet: 0, credits: 0, referralCode: 'FRESH10', referralCount: 0, totalSpent: 0, loyaltyTier: 'Bronze' },
+    { id: 'u2', name: 'New Driver', role: 'driver', email: 'driver@farmfresh.app', phone: '', status: 'active', verified: false, rating: 0, trips: 0, earnings: 0, online: false, acceptanceRate: 0 },
+    { id: 'u3', name: 'New Farmer', role: 'farmer', email: 'farmer@farmfresh.app', phone: '', status: 'active', verified: false, rating: 0, revenue: 0 },
+    { id: 'u4', name: 'Platform Admin', role: 'owner', email: 'misiksolutionsllc@gmail.com', status: 'active', verified: true }
   ],
-  products: [
-    { id: 'p1', farmerId: 'u3', name: 'Organic Honeycrisp Apples', price: 2.99, unit: 'lb', image: '🍎', category: 'Fruits', stock: 50, status: 'active', sales: 120, rating: 4.8, reviews: 12, description: "Crisp, sweet, and locally grown without pesticides.", organic: true, vegan: true, glutenFree: true },
-    { id: 'p2', farmerId: 'u3', name: 'Free-Range Brown Eggs', price: 5.50, unit: 'doz', image: '🥚', category: 'Dairy', stock: 4, status: 'active', sales: 85, rating: 4.9, reviews: 20, description: "Gathered daily from happy, pasture-raised hens.", organic: true, vegan: false, glutenFree: true },
-    { id: 'p3', farmerId: 'u3', name: 'Heirloom Tomatoes', price: 4.25, unit: 'lb', image: '🍅', category: 'Vegetables', stock: 30, status: 'active', sales: 45, rating: 4.5, reviews: 8, description: "Juicy, colorful mix of heritage tomato varieties.", organic: true, vegan: true, glutenFree: true },
-    { id: 'p4', farmerId: 'u3', name: 'Fresh Sourdough', price: 6.00, unit: 'loaf', image: '🍞', category: 'Bakery', stock: 0, status: 'active', sales: 200, rating: 5.0, reviews: 30, description: "Artisan baked with a 100-year-old starter.", organic: false, vegan: true, glutenFree: false },
-    { id: 'p5', farmerId: 'u3', name: 'Organic Carrots', price: 3.49, unit: 'bunch', image: '🥕', category: 'Vegetables', stock: 25, status: 'active', sales: 67, rating: 4.7, reviews: 15, description: "Sweet and crunchy, perfect for snacking or cooking.", organic: true, vegan: true, glutenFree: true },
-    { id: 'p6', farmerId: 'u3', name: 'Fresh Strawberries', price: 4.99, unit: 'pint', image: '🍓', category: 'Fruits', stock: 18, status: 'active', sales: 92, rating: 4.9, reviews: 25, description: "Picked at peak ripeness for maximum sweetness.", organic: true, vegan: true, glutenFree: true },
-  ],
-  orders: [
-    { id: 'ord-1', customerId: 'u1', merchantId: 'u3', items: [{ id: 'p1', qty: 2, price: 2.99, name: 'Organic Honeycrisp Apples', image: '🍎' }], total: 13.99, status: 'Delivered', date: new Date(Date.now() - 86400000).toISOString(), driverId: 'u2', fees: { subtotal: 5.98, delivery: 4.99, platform: 0.60, tax: 0.42, tip: 2.00, discount: 0 }, instructions: "Leave at front door." },
-    { id: 'ord-2', customerId: 'u1', merchantId: 'u3', driverId: null, items: [{ id: 'p3', qty: 3, price: 4.25, name: 'Heirloom Tomatoes', image: '🍅' }, { id: 'p6', qty: 1, price: 4.99, name: 'Fresh Strawberries', image: '🍓' }], total: 22.74, status: 'Pending', date: new Date().toISOString(), fees: { subtotal: 17.74, delivery: 4.99, platform: 0.00, tax: 0.00, tip: 0.00, discount: 0 }, instructions: 'Please pack carefully.' },
-    { id: 'ord-3', customerId: 'u1', merchantId: 'u3', driverId: null, items: [{ id: 'p2', qty: 2, price: 5.50, name: 'Free-Range Brown Eggs', image: '🥚' }, { id: 'p5', qty: 2, price: 3.49, name: 'Organic Carrots', image: '🥕' }], total: 23.97, status: 'Processing', date: new Date(Date.now() - 3600000).toISOString(), fees: { subtotal: 17.98, delivery: 4.99, platform: 0.60, tax: 0.40, tip: 0.00, discount: 0 }, instructions: '' },
-  ],
+  products: [],
+  orders: [],
   deliveries: [],
-  transactions: [
-    { id: 'tx-1', type: 'Payout', amount: -250.00, date: new Date(Date.now() - 604800000).toISOString(), status: 'Completed', method: 'Bank Transfer' },
-  ],
+  transactions: [],
   promos: [
-    { code: 'FRESH20', discount: 0.20, type: 'percent', label: '20% Off', usedCount: 45, active: true, minOrder: 20 },
-    { code: 'WELCOME5', discount: 5.00, type: 'flat', label: '$5 Off', usedCount: 120, active: true },
-    { code: 'FREEDELIVERY', discount: 0, type: 'free_delivery', label: 'Free Delivery', usedCount: 30, active: true, minOrder: 25 },
-    { code: 'SUMMER15', discount: 0.15, type: 'percent', label: '15% Off', usedCount: 0, active: false, expiresAt: '2025-08-31' }
+    { code: 'FRESH20', discount: 0.20, type: 'percent', label: '20% Off', usedCount: 0, active: true, minOrder: 20 },
+    { code: 'WELCOME5', discount: 5.00, type: 'flat', label: '$5 Off', usedCount: 0, active: true },
+    { code: 'FREEDELIVERY', discount: 0, type: 'free_delivery', label: 'Free Delivery', usedCount: 0, active: true, minOrder: 25 },
   ],
-  reviews: [
-    { id: 'rev-1', productId: 'p1', customerId: 'u1', customerName: 'Alice C.', rating: 5, comment: 'Best apples I\'ve ever had! So crisp and sweet.', date: new Date(Date.now() - 172800000).toISOString(), status: 'approved' },
-    { id: 'rev-2', productId: 'p2', customerId: 'u1', customerName: 'Alice C.', rating: 5, comment: 'These eggs are amazing. You can taste the difference!', date: new Date(Date.now() - 86400000).toISOString(), status: 'approved' },
-    { id: 'rev-3', productId: 'p6', customerId: 'u1', customerName: 'Alice C.', rating: 4, comment: 'Delicious strawberries, though a few were slightly bruised.', date: new Date(Date.now() - 43200000).toISOString(), status: 'approved' }
-  ],
-  driverLocations: [
-    { driverId: 'u2', latitude: 26.6587, longitude: -80.2684, heading: 45, updatedAt: new Date().toISOString() }
-  ],
+  reviews: [],
+  driverLocations: [],
   referrals: [],
   timeSlots: [
     { id: 'ts1', label: '9:00 AM - 11:00 AM', startHour: 9, endHour: 11, available: true },
@@ -549,90 +507,9 @@ export const INITIAL_DB: Database = {
   notifications: [],
   pendingAdjustments: [],
   subscriptionPlans: [
-    {
-      id: 'plan-free',
-      name: 'Free',
-      tier: 'free',
-      monthlyPrice: 0,
-      yearlyPrice: 0,
-      features: [
-        'List up to 10 products',
-        'Basic analytics',
-        'Email support',
-        'Standard delivery',
-      ],
-      limits: {
-        products: 10,
-        orders: 50,
-        storage: '1GB',
-        support: 'Email only',
-      },
-    },
-    {
-      id: 'plan-basic',
-      name: 'Basic',
-      tier: 'basic',
-      monthlyPrice: 29.99,
-      yearlyPrice: 299.99,
-      features: [
-        'List up to 50 products',
-        'Advanced analytics',
-        'Priority email support',
-        'Featured listings',
-        'Custom branding',
-      ],
-      limits: {
-        products: 50,
-        orders: 200,
-        storage: '10GB',
-        support: 'Priority email',
-      },
-    },
-    {
-      id: 'plan-premium',
-      name: 'Premium',
-      tier: 'premium',
-      monthlyPrice: 79.99,
-      yearlyPrice: 799.99,
-      features: [
-        'Unlimited products',
-        'Real-time analytics',
-        '24/7 phone support',
-        'Premium featured listings',
-        'Advanced marketing tools',
-        'API access',
-        'Dedicated account manager',
-      ],
-      limits: {
-        products: 999999,
-        orders: 999999,
-        storage: '100GB',
-        support: '24/7 phone',
-      },
-      popular: true,
-    },
-    {
-      id: 'plan-enterprise',
-      name: 'Enterprise',
-      tier: 'enterprise',
-      monthlyPrice: 199.99,
-      yearlyPrice: 1999.99,
-      features: [
-        'Everything in Premium',
-        'Custom integrations',
-        'White-label solution',
-        'Multi-location support',
-        'Advanced reporting',
-        'Custom contracts',
-        'Dedicated infrastructure',
-      ],
-      limits: {
-        products: 999999,
-        orders: 999999,
-        storage: 'Unlimited',
-        support: 'Dedicated team',
-      },
-    },
+    { id: 'plan-free', name: 'Starter', tier: 'free', monthlyPrice: 0, yearlyPrice: 0, features: ['Up to 10 products', 'Basic storefront', 'Standard listing', 'Email support', 'Basic analytics'], limits: { products: 10, orders: 50, storage: '1GB', support: 'Email only' } },
+    { id: 'plan-growth', name: 'Growth', tier: 'premium', monthlyPrice: 300, yearlyPrice: 2880, features: ['Unlimited products', 'Featured storefront badge', 'Priority listing', 'AI product descriptions', 'Advanced analytics', 'Promotional tools', 'Priority support', 'Custom farm page'], limits: { products: 999999, orders: 999999, storage: '100GB', support: '24/7 phone' }, popular: true },
+    { id: 'plan-enterprise', name: 'Enterprise', tier: 'enterprise', monthlyPrice: 799, yearlyPrice: 7670, features: ['Everything in Growth', 'Dedicated account manager', 'White-label delivery', 'API access', 'Multi-location support', 'Custom integrations', 'Bulk upload tools'], limits: { products: 999999, orders: 999999, storage: 'Unlimited', support: 'Dedicated team' } },
   ],
   onboardingProgress: [],
   auditLogs: [],

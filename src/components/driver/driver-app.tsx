@@ -6,6 +6,7 @@ import { AppShell } from '@/components/ui/app-shell';
 import { MiniStat, BarChart, ProgressBar, Sparkline } from '@/components/ui/charts';
 import { LiveMap, DriverMapView } from '@/components/ui/live-map';
 import { SettingsSection } from '@/components/ui/shared-settings';
+import { DriverPayoutModal } from '@/components/ui/payment-system';
 import { cn, formatCurrency, getStatusColor, formatDate } from '@/lib/utils';
 import { Gauge, Package, DollarSign, User, Map, Power, Navigation, Star, Zap, Banknote, Clock, MapPin, TrendingUp, ChevronRight, Settings } from 'lucide-react';
 
@@ -21,6 +22,7 @@ const navItems = [
 export function DriverApp() {
   const { db, dispatch, showToast, currentUserId } = useAppStore();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showPayout, setShowPayout] = useState(false);
   const driver = db.users.find((u) => u.id === currentUserId);
   const availableDeliveries = db.deliveries.filter((d) => d.driverId === null && d.status === 'Pending');
   const myDeliveries = db.deliveries.filter((d) => d.driverId === currentUserId);
@@ -29,13 +31,13 @@ export function DriverApp() {
 
   if (!driver) return null;
 
-  // Fake sparkline data for stats
-  const earningsSparkData = [120, 95, 180, 140, 210, 175, (driver.earnings || 0)];
-  const tripsSparkData = [5, 8, 6, 12, 9, 14, driver.trips || 0];
+  // Sparkline data based on real activity
+  const earningsSparkData = [0, 0, 0, 0, 0, 0, (driver.earnings || 0)];
+  const tripsSparkData = [0, 0, 0, 0, 0, 0, driver.trips || 0];
 
   // Weekly earnings for bar chart
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const weeklyData = weekDays.map((d, i) => ({ label: d, value: Math.round(Math.random() * 80 + 20 + (i === 6 ? (driver.earnings || 0) / 10 : 0)) }));
+  const weeklyData = weekDays.map((d, i) => ({ label: d, value: i === 6 ? Math.round((driver.earnings || 0) / 10) : 0 }));
 
   return (
     <AppShell role="driver" navItems={navItems} activeTab={activeTab} onTabChange={setActiveTab}>
@@ -62,8 +64,8 @@ export function DriverApp() {
 
           {/* Stats with sparklines */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <MiniStat label="Earnings" value={formatCurrency(driver.earnings)} icon={<DollarSign className="w-4 h-4" />} color="#10B981" sparkData={earningsSparkData} trend="+12%" trendUp delay={0} />
-            <MiniStat label="Trips" value={`${driver.trips || 0}`} icon={<Navigation className="w-4 h-4" />} color="#3B82F6" sparkData={tripsSparkData} trend="+5" trendUp delay={80} />
+            <MiniStat label="Earnings" value={formatCurrency(driver.earnings)} icon={<DollarSign className="w-4 h-4" />} color="#10B981" sparkData={earningsSparkData} trend={driver.earnings ? `$${(driver.earnings || 0).toFixed(0)}` : '$0'} trendUp={(driver.earnings || 0) > 0} delay={0} />
+            <MiniStat label="Trips" value={`${driver.trips || 0}`} icon={<Navigation className="w-4 h-4" />} color="#3B82F6" sparkData={tripsSparkData} trend={`${driver.trips || 0} total`} trendUp={(driver.trips || 0) > 0} delay={80} />
             <MiniStat label="Rating" value={driver.rating?.toFixed(1) || '–'} icon={<Star className="w-4 h-4" />} color="#F59E0B" delay={160} />
             <MiniStat label="Acceptance" value={`${driver.acceptanceRate || 0}%`} icon={<TrendingUp className="w-4 h-4" />} color="#8B5CF6" delay={240} />
           </div>
@@ -142,7 +144,7 @@ export function DriverApp() {
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Available Balance</div>
             <div className="text-4xl font-bold text-white animate-count-up">{formatCurrency(driver.earnings)}</div>
             <div className="flex items-center justify-center gap-1 mt-2"><Sparkline data={earningsSparkData} width={100} height={30} color="#3B82F6" /></div>
-            <button onClick={() => { if ((driver.earnings || 0) > 0) { dispatch({ type: 'DRIVER_PAYOUT', amount: driver.earnings || 0, method: 'bank', driverId: currentUserId! }); showToast('Payout initiated!'); } }} disabled={!driver.earnings || driver.earnings <= 0}
+            <button onClick={() => setShowPayout(true)} disabled={!driver.earnings || driver.earnings <= 0}
               className="btn-primary bg-blue-600 mt-4 text-sm disabled:bg-slate-700"><Banknote className="w-4 h-4 inline mr-2" />Cash Out</button>
           </div>
           <h3 className="font-semibold text-white">Recent Transactions</h3>
@@ -280,6 +282,9 @@ export function DriverApp() {
       {activeTab === 'notifications' && (
         <div className="max-w-2xl mx-auto space-y-4 pb-24 lg:pb-4"><h2 className="text-xl font-display font-bold text-white">Notifications</h2><div className="text-center py-20 animate-fade-in"><span className="text-6xl mb-4 block">🔔</span><p className="text-slate-400">No notifications</p></div></div>
       )}
+
+      {/* Payout Modal */}
+      <DriverPayoutModal open={showPayout} onClose={() => setShowPayout(false)} earnings={driver.earnings || 0} />
     </AppShell>
   );
 }

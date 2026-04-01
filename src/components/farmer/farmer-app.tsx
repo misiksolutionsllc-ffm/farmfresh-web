@@ -16,6 +16,7 @@ import {
   Clock, Truck, MessageSquare, BadgePercent, Target, Gift, Settings,
 } from 'lucide-react';
 import { SettingsSection } from '@/components/ui/shared-settings';
+import { SubscriptionModal, DriverPayoutModal } from '@/components/ui/payment-system';
 
 // ============================================================
 // ONBOARDING STEPS
@@ -575,6 +576,8 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
   const [showBankModal, setShowBankModal] = useState<'edit' | 'add' | null>(null);
   const [showCancelSub, setShowCancelSub] = useState(false);
   const [showUpdatePayment, setShowUpdatePayment] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [activatingFeature, setActivatingFeature] = useState<{ name: string; price: number; period: string } | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [productPhoto, setProductPhoto] = useState<string | null>(null);
@@ -1032,7 +1035,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
                       </li>
                     ))}
                   </ul>
-                  <button className={cn('w-full btn-primary text-sm', tier.current ? 'bg-white/5 text-slate-400 cursor-default' : tier.popular ? 'bg-orange-600' : 'bg-white/10 text-white')}>
+                  <button onClick={() => !tier.current && setShowSubscriptionModal(true)} className={cn('w-full btn-primary text-sm', tier.current ? 'bg-white/5 text-slate-400 cursor-default' : tier.popular ? 'bg-orange-600' : 'bg-white/10 text-white')}>
                     {tier.current ? '✓ Current Plan' : tier.popular ? 'Upgrade to Growth' : 'Contact Sales'}
                   </button>
                 </div>
@@ -1114,7 +1117,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
                 <div className="text-[10px] text-slate-500">Processing</div>
               </div>
             </div>
-            <button onClick={() => showToast('Payout initiated! Funds will arrive in 1-3 business days')}
+            <button onClick={() => setShowPayoutModal(true)}
               className="w-full btn-primary bg-emerald-600 text-sm flex items-center justify-center gap-2">
               <DollarSign className="w-4 h-4" /> Withdraw to Bank
             </button>
@@ -1127,15 +1130,23 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
               <button onClick={() => setShowBankModal('edit')} className="text-xs text-orange-400 hover:text-orange-300">Edit</button>
             </div>
             <div className="bg-surface-800 rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center"><Landmark className="w-6 h-6 text-blue-400" /></div>
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-white">Chase Bank</div>
-                  <div className="text-xs text-slate-500">Checking •••• 4821</div>
-                  <div className="text-xs text-slate-500">{farmer.name}</div>
+              {farmer.bankLast4 ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center"><Landmark className="w-6 h-6 text-blue-400" /></div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-white">Bank Account</div>
+                    <div className="text-xs text-slate-500">Checking •••• {farmer.bankLast4}</div>
+                    <div className="text-xs text-slate-500">{farmer.name}</div>
+                  </div>
+                  <span className="badge bg-emerald-500/20 text-emerald-400">Verified</span>
                 </div>
-                <span className="badge bg-emerald-500/20 text-emerald-400">Verified</span>
-              </div>
+              ) : (
+                <div className="text-center py-4">
+                  <Landmark className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                  <p className="text-sm text-slate-400">No bank account connected</p>
+                  <p className="text-xs text-slate-500 mt-1">Add a bank account to receive payouts</p>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 mt-3">
               <button onClick={() => setShowBankModal('add')} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 text-sm text-slate-300 hover:bg-white/10 transition-all text-center">
@@ -1151,54 +1162,74 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
           <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
             <div className="flex items-center justify-between mb-4">
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">⭐ Subscription</div>
-              <button onClick={() => setActiveTab('marketing')} className="text-xs text-orange-400 hover:text-orange-300">Upgrade</button>
+              <button onClick={() => setShowSubscriptionModal(true)} className="text-xs text-orange-400 hover:text-orange-300">Upgrade</button>
             </div>
             <div className="bg-gradient-to-br from-orange-500/5 to-surface-800 border border-orange-500/10 rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center"><Rocket className="w-5 h-5 text-orange-400" /></div>
-                <div>
-                  <div className="text-sm font-bold text-white">Growth Plan</div>
-                  <div className="text-xs text-slate-500">$300/month • Renews Apr 26</div>
-                </div>
-                <span className="badge bg-emerald-500/20 text-emerald-400 ml-auto">Active</span>
-              </div>
-              <div className="space-y-1.5">
-                {['Unlimited products', 'Featured storefront', 'Priority listing', 'AI descriptions', 'Advanced analytics'].map((f) => (
-                  <div key={f} className="flex items-center gap-2 text-xs text-slate-300">
-                    <Check className="w-3 h-3 text-orange-400" />{f}
+              {farmer.subscription ? (
+                <>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center"><Rocket className="w-5 h-5 text-orange-400" /></div>
+                    <div>
+                      <div className="text-sm font-bold text-white">{farmer.subscription.tier === 'premium' ? 'Growth' : farmer.subscription.tier === 'enterprise' ? 'Enterprise' : 'Starter'} Plan</div>
+                      <div className="text-xs text-slate-500">${farmer.subscription.tier === 'premium' ? '300' : farmer.subscription.tier === 'enterprise' ? '799' : '0'}/month</div>
+                    </div>
+                    <span className={cn('badge ml-auto', farmer.subscription.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400')}>{farmer.subscription.status === 'active' ? 'Active' : 'Inactive'}</span>
                   </div>
-                ))}
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button onClick={() => setShowUpdatePayment(true)} className="flex-1 px-3 py-2 rounded-lg bg-white/5 text-xs text-slate-300 hover:bg-white/10 transition-all">
-                  <CreditCard className="w-3 h-3 inline mr-1" /> Update Payment
-                </button>
-                <button onClick={() => setShowCancelSub(true)} className="px-3 py-2 rounded-lg text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/5 transition-all">
-                  Cancel
-                </button>
-              </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <Leaf className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                  <div className="text-sm font-bold text-white">Free Plan</div>
+                  <p className="text-xs text-slate-500 mt-1">Upgrade to unlock premium features</p>
+                  <button onClick={() => setShowSubscriptionModal(true)} className="btn-primary bg-orange-600 text-sm mt-3">Upgrade Now</button>
+                </div>
+              )}
+              {farmer.subscription && farmer.subscription.status === 'active' && (
+                <>
+                  <div className="space-y-1.5">
+                    {(farmer.subscription.tier === 'premium'
+                      ? ['Unlimited products', 'Featured storefront', 'Priority listing', 'AI descriptions', 'Advanced analytics']
+                      : farmer.subscription.tier === 'enterprise'
+                      ? ['Unlimited products', 'White-label delivery', 'API access', 'Multi-location', 'Dedicated manager']
+                      : ['Up to 10 products', 'Basic storefront', 'Email support']
+                    ).map((f) => (
+                      <div key={f} className="flex items-center gap-2 text-xs text-slate-300">
+                        <Check className="w-3 h-3 text-orange-400" />{f}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => setShowUpdatePayment(true)} className="flex-1 px-3 py-2 rounded-lg bg-white/5 text-xs text-slate-300 hover:bg-white/10 transition-all">
+                      <CreditCard className="w-3 h-3 inline mr-1" /> Update Payment
+                    </button>
+                    <button onClick={() => setShowCancelSub(true)} className="px-3 py-2 rounded-lg text-xs text-red-400/50 hover:text-red-400 hover:bg-red-500/5 transition-all">
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {/* Payout History */}
           <div className="card p-5 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
             <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">📄 Recent Payouts</div>
-            {[
-              { date: 'Mar 15, 2026', amount: 842.50, status: 'Completed', method: 'Bank Transfer' },
-              { date: 'Mar 1, 2026', amount: 1256.00, status: 'Completed', method: 'Bank Transfer' },
-              { date: 'Feb 15, 2026', amount: 673.25, status: 'Completed', method: 'Bank Transfer' },
-            ].map((p, i) => (
-              <div key={i} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
-                <div>
-                  <div className="text-sm text-white">{p.date}</div>
-                  <div className="text-xs text-slate-500">{p.method}</div>
+            {db.transactions.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-6">No payouts yet</p>
+            ) : (
+              db.transactions.filter((t) => t.type === 'Payout').slice(0, 5).map((p, i) => (
+                <div key={p.id || i} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
+                  <div>
+                    <div className="text-sm text-white">{formatDate(p.date)}</div>
+                    <div className="text-xs text-slate-500">{p.method}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-emerald-400">{formatCurrency(Math.abs(p.amount))}</div>
+                    <span className="badge bg-emerald-500/15 text-emerald-400">{p.status}</span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-emerald-400">+{formatCurrency(p.amount)}</div>
-                  <span className="badge bg-emerald-500/15 text-emerald-400">{p.status}</span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Documents & Compliance */}
@@ -1401,6 +1432,10 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
           </button>
         </div>
       </Modal>
+
+      {/* Payment Modals */}
+      <SubscriptionModal open={showSubscriptionModal} onClose={() => setShowSubscriptionModal(false)} />
+      <DriverPayoutModal open={showPayoutModal} onClose={() => setShowPayoutModal(false)} earnings={totalRevenue * 0.85} />
     </AppShell>
   );
 }
@@ -1462,9 +1497,9 @@ function FarmerAnalytics({ farmer, myProducts, myOrders, db, totalRevenue }: { f
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Revenue', value: formatCurrency(totalRevenue), trend: '+18.3%', up: true, icon: DollarSign, color: '#10B981', detail: `${delivered.length} completed orders` },
+          { label: 'Revenue', value: formatCurrency(totalRevenue), trend: totalRevenue > 0 ? 'Active' : 'No data', up: totalRevenue > 0, icon: DollarSign, color: '#10B981', detail: `${delivered.length} completed orders` },
           { label: 'Orders', value: `${myOrders.length}`, trend: `${pending.length} active`, up: true, icon: ShoppingBag, color: '#EA580C', detail: `${fulfillmentRate.toFixed(0)}% fulfillment rate` },
-          { label: 'Avg Order', value: formatCurrency(avgOrderValue), trend: '+5.2%', up: true, icon: TrendingUp, color: '#3B82F6', detail: `${totalItemsSold} total items sold` },
+          { label: 'Avg Order', value: formatCurrency(avgOrderValue), trend: avgOrderValue > 0 ? formatCurrency(avgOrderValue) : 'No data', up: avgOrderValue > 0, icon: TrendingUp, color: '#3B82F6', detail: `${totalItemsSold} total items sold` },
           { label: 'Rating', value: avgRating > 0 ? avgRating.toFixed(1) : (farmer.rating?.toFixed(1) || '–'), trend: `${reviews.length} reviews`, up: true, icon: Star, color: '#F59E0B', detail: `${reviews.filter((r: any) => r.rating >= 4).length} positive` },
         ].map((kpi, i) => {
           const Icon = kpi.icon;
@@ -1494,7 +1529,7 @@ function FarmerAnalytics({ farmer, myProducts, myOrders, db, totalRevenue }: { f
             <div className="text-lg font-bold text-white mt-0.5">{formatCurrency(totalRevenue)}</div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">+18.3%</span>
+            <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">{totalRevenue > 0 ? 'Active' : 'No data'}</span>
             <ChevronRight className={cn('w-4 h-4 text-slate-500 transition-transform', expandedSection === 'revenue' && 'rotate-90')} />
           </div>
         </button>

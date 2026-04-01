@@ -10,6 +10,7 @@ import {
   DietaryModal,
 } from '@/components/customer/profile-modals';
 import { SettingsSection } from '@/components/ui/shared-settings';
+import { CheckoutModal } from '@/components/ui/payment-system';
 import { cn, formatCurrency, getStatusColor, formatDate, formatRelativeTime } from '@/lib/utils';
 import { Product, OrderItem } from '@/lib/store';
 import {
@@ -50,6 +51,7 @@ export function CustomerApp() {
   const [reviewingOrder, setReviewingOrder] = useState<string | null>(null);
   const [reviewStars, setReviewStars] = useState(5);
   const [reviewText, setReviewText] = useState('');
+  const [showCheckout, setShowCheckout] = useState(false);
 
   const currentUser = db.users.find((u) => u.id === currentUserId);
   const products = db.products.filter((p) => p.status === 'active');
@@ -80,14 +82,17 @@ export function CustomerApp() {
     setCart((prev) => prev.map((item) => item.id === id ? { ...item, qty: Math.max(0, item.qty + delta) } : item).filter((item) => item.qty > 0));
   };
 
-  const placeOrder = () => {
+  const placeOrder = (tip = 0, promoCode = '') => {
     if (cart.length === 0 || !currentUserId) return;
     const merchantId = cart[0].farmerId;
-    const fees = { subtotal: cartTotal, delivery: db.settings.deliveryBaseFee, platform: cartTotal * (db.settings.platformFeePercent / 100), tax: cartTotal * db.settings.taxRate, tip: 0, discount: 0 };
-    dispatch({ type: 'CREATE_ORDER', payload: { customerId: currentUserId, merchantId, items: cart.map(({ farmerId, ...item }) => item), fees, total: fees.subtotal + fees.delivery + fees.platform + fees.tax } });
+    const promo = promoCode ? db.promos.find((p) => p.code.toUpperCase() === promoCode.toUpperCase()) : null;
+    const promoDiscount = promo ? (promo.type === 'percent' ? cartTotal * (promo.discount / 100) : promo.type === 'flat' ? promo.discount : db.settings.deliveryBaseFee) : 0;
+    const fees = { subtotal: cartTotal, delivery: db.settings.deliveryBaseFee, platform: cartTotal * (db.settings.platformFeePercent / 100), tax: cartTotal * db.settings.taxRate, tip, discount: Math.min(promoDiscount, cartTotal) };
+    const total = fees.subtotal + fees.delivery + fees.platform + fees.tax + fees.tip - fees.discount;
+    dispatch({ type: 'CREATE_ORDER', payload: { customerId: currentUserId, merchantId, items: cart.map(({ farmerId, ...item }) => item), fees, total } });
+    if (promo) dispatch({ type: 'USE_PROMO', code: promoCode });
     setCart([]);
     setActiveTab('orders');
-    showToast('Order placed successfully!');
   };
 
   const myOrders = db.orders.filter((o) => o.customerId === currentUserId);
@@ -266,8 +271,8 @@ export function CustomerApp() {
                     <span className="text-emerald-400">{formatCurrency(cartTotal + db.settings.deliveryBaseFee + cartTotal * db.settings.taxRate + cartTotal * (db.settings.platformFeePercent / 100))}</span>
                   </div>
                 </div>
-                <button onClick={placeOrder} className="w-full btn-primary bg-emerald-600 flex items-center justify-center gap-2 mt-2">
-                  <ShoppingBag className="w-4 h-4" /> Place Order
+                <button onClick={() => setShowCheckout(true)} className="w-full btn-primary bg-emerald-600 flex items-center justify-center gap-2 mt-2">
+                  <ShoppingBag className="w-4 h-4" /> Proceed to Checkout
                 </button>
               </div>
             </>
@@ -627,29 +632,25 @@ export function CustomerApp() {
               <button onClick={() => setShowPayment('add')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"><Plus className="w-3 h-3" />Add</button>
             </div>
             <div className="space-y-2">
-              <button onClick={() => setShowPayment('visa')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                  <CreditCard className="w-5 h-5 text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-white font-medium">Visa •••• 4242</span>
-                    <span className="badge bg-blue-500/15 text-blue-400 text-[9px]">Default</span>
+              {currentUser.cardLast4 ? (
+                <button onClick={() => setShowPayment('visa')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                    <CreditCard className="w-5 h-5 text-blue-400" />
                   </div>
-                  <span className="text-xs text-slate-500">Expires 12/28</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-600" />
-              </button>
-              <button onClick={() => setShowPayment('apple')} className="w-full text-left flex items-center gap-3 bg-surface-900 rounded-xl p-3 hover:bg-surface-900/80 transition-all active:scale-[0.99]">
-                <div className="w-10 h-10 rounded-lg bg-slate-500/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-lg">🍎</span>
-                </div>
-                <div className="flex-1">
-                  <span className="text-sm text-white font-medium">Apple Pay</span>
-                  <div className="text-xs text-slate-500">Connected</div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-600" />
-              </button>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-white font-medium">Card •••• {currentUser.cardLast4}</span>
+                      <span className="badge bg-blue-500/15 text-blue-400 text-[9px]">Default</span>
+                    </div>
+                    <span className="text-xs text-slate-500">Saved payment method</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-600" />
+                </button>
+              ) : (
+                <button onClick={() => setShowPayment('add')} className="w-full py-6 rounded-xl border border-dashed border-white/10 text-sm text-slate-500 hover:text-white hover:border-emerald-500/30 transition-all">
+                  <CreditCard className="w-5 h-5 inline mr-2 text-slate-600" /> Add a payment method
+                </button>
+              )}
             </div>
           </div>
 
@@ -769,6 +770,7 @@ export function CustomerApp() {
       <AddressModal open={!!showAddress} onClose={() => setShowAddress(null)} editMode={showAddress === 'edit'} />
       <PaymentModal open={!!showPayment} onClose={() => setShowPayment(null)} mode={showPayment || 'add'} />
       <DietaryModal open={showDietary} onClose={() => setShowDietary(false)} />
+      <CheckoutModal open={showCheckout} onClose={() => setShowCheckout(false)} cart={cart} cartTotal={cartTotal} onPlaceOrder={(tip, promo) => { placeOrder(tip, promo); setShowCheckout(false); }} />
     </AppShell>
   );
 }

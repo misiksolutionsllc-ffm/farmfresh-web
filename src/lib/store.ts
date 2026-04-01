@@ -516,20 +516,28 @@ export const INITIAL_DB: Database = {
   logs: []
 };
 
-// Storage key
+// Storage key + version (increment to force reset)
 const STORAGE_KEY = 'farmfresh_db';
+const DB_VERSION_KEY = 'farmfresh_db_version';
+const DB_VERSION = 2; // v2 = clean launch, no seed data
 
 // Load database from storage
 export function loadDatabase(): Database {
   try {
+    // Force reset if version mismatch
+    const savedVersion = parseInt(localStorage.getItem(DB_VERSION_KEY) || '0');
+    if (savedVersion < DB_VERSION) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(DB_VERSION_KEY, DB_VERSION.toString());
+      return INITIAL_DB;
+    }
+
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Merge with INITIAL_DB to ensure all fields exist (handles schema migrations)
       return {
         ...INITIAL_DB,
         ...parsed,
-        // Ensure arrays exist even if not in saved data
         users: parsed.users || INITIAL_DB.users,
         products: parsed.products || INITIAL_DB.products,
         orders: parsed.orders || INITIAL_DB.orders,
@@ -548,6 +556,7 @@ export function loadDatabase(): Database {
   } catch (e) {
     console.error('Failed to load database:', e);
   }
+  localStorage.setItem(DB_VERSION_KEY, DB_VERSION.toString());
   return INITIAL_DB;
 }
 

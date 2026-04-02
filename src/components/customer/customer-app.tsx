@@ -113,7 +113,7 @@ export function CustomerApp() {
                 </p>
               </div>
               <h2 className="text-2xl font-display font-bold text-white mb-1">Fresh from the farm</h2>
-              <p className="text-sm text-slate-400">{products.length} products • {db.users.filter((u) => u.role === 'farmer').length} local farms</p>
+              <p className="text-sm text-slate-400">{products.length > 0 ? `${products.length} product${products.length !== 1 ? 's' : ''} • ` : ''}{db.users.filter((u) => u.role === 'farmer').length} local farm{db.users.filter((u) => u.role === 'farmer').length !== 1 ? 's' : ''}</p>
               {currentUser?.loyaltyTier && (
                 <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20">
                   <Gift className="w-3 h-3 text-amber-400" />
@@ -219,8 +219,17 @@ export function CustomerApp() {
               );
             })}
           </div>
-          {filteredProducts.length === 0 && (
-            <div className="text-center py-16 animate-fade-in"><span className="text-5xl mb-4 block animate-float">🔍</span><p className="text-slate-400">No products found</p></div>
+          {filteredProducts.length === 0 && products.length === 0 && (
+            <div className="text-center py-16 animate-fade-in">
+              <span className="text-6xl mb-4 block animate-float">🌾</span>
+              <h3 className="text-lg font-bold text-white mb-2">Marketplace Opening Soon!</h3>
+              <p className="text-slate-400 max-w-xs mx-auto">Local farmers are adding their products. Check back soon for fresh, natural food from nearby farms.</p>
+            </div>
+          )}
+          {filteredProducts.length === 0 && products.length > 0 && (
+            <div className="text-center py-16 animate-fade-in"><span className="text-5xl mb-4 block animate-float">🔍</span><p className="text-slate-400">No products match your search</p>
+              <button onClick={() => { setSearch(''); setSelectedCategory('All'); }} className="mt-3 text-sm text-emerald-400 hover:text-emerald-300">Clear filters</button>
+            </div>
           )}
         </div>
       )}

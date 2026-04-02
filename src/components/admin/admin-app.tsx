@@ -93,7 +93,7 @@ export function AdminApp() {
             {[
               { label: 'Customers', count: db.users.filter((u) => u.role === 'customer').length, icon: <ShoppingCart className="w-4 h-4" />, color: '#059669' },
               { label: 'Drivers', count: db.users.filter((u) => u.role === 'driver').length, icon: <Truck className="w-4 h-4" />, color: '#2563EB' },
-              { label: 'Merchants', count: db.users.filter((u) => u.role === 'farmer').length, icon: <Store className="w-4 h-4" />, color: '#EA580C' },
+              { label: 'Farmers', count: db.users.filter((u) => u.role === 'farmer').length, icon: <Store className="w-4 h-4" />, color: '#EA580C' },
               { label: 'Products', count: db.products.length, icon: <Package className="w-4 h-4" />, color: '#8B5CF6' },
             ].map((item, i) => (
               <div key={item.label} className="rounded-2xl p-4 flex items-center gap-3 animate-fade-in-up stat-glow" style={{ backgroundColor: item.color + '08', animationDelay: `${500 + i * 60}ms`, color: item.color }}>
@@ -167,7 +167,7 @@ export function AdminApp() {
               { label: 'Active Deliveries', value: db.deliveries.filter((d) => d.status !== 'Delivered').length, color: 'text-blue-400', bg: 'bg-blue-500/10' },
               { label: 'Online Drivers', value: db.users.filter((u) => u.role === 'driver' && u.online).length, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
               { label: 'Pending Orders', value: db.orders.filter((o) => o.status === 'Pending').length, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-              { label: 'Merchants', value: db.users.filter((u) => u.role === 'farmer').length, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+              { label: 'Farmers', value: db.users.filter((u) => u.role === 'farmer').length, color: 'text-orange-400', bg: 'bg-orange-500/10' },
             ].map((s, i) => (
               <div key={s.label} className={cn('rounded-2xl p-4 border border-white/5 animate-fade-in-up', s.bg)} style={{ animationDelay: `${i * 60}ms` }}>
                 <div className={cn('text-2xl font-bold', s.color)}>{s.value}</div>
@@ -199,7 +199,7 @@ export function AdminApp() {
           <div className="flex flex-wrap gap-4 px-1">
             {[
               { color: '#2563EB', label: 'Drivers (online)', dot: true },
-              { color: '#EA580C', label: 'Merchants' },
+              { color: '#EA580C', label: 'Farmers' },
               { color: '#F59E0B', label: 'Pending route' },
               { color: '#3B82F6', label: 'Active route' },
             ].map((l) => (

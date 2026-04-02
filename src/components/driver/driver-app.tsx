@@ -84,7 +84,7 @@ export function DriverApp() {
 
           {/* Stats with sparklines */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <MiniStat label="Earnings" value={formatCurrency(driver.earnings)} icon={<DollarSign className="w-4 h-4" />} color="#10B981" sparkData={earningsSparkData} trend={driver.earnings ? `$${(driver.earnings || 0).toFixed(0)}` : '$0'} trendUp={(driver.earnings || 0) > 0} delay={0} />
+            <MiniStat label="Earnings" value={formatCurrency(driver.earnings || 0)} icon={<DollarSign className="w-4 h-4" />} color="#10B981" sparkData={earningsSparkData} trend={driver.earnings ? `$${(driver.earnings || 0).toFixed(0)}` : '$0'} trendUp={(driver.earnings || 0) > 0} delay={0} />
             <MiniStat label="Trips" value={`${driver.trips || 0}`} icon={<Navigation className="w-4 h-4" />} color="#3B82F6" sparkData={tripsSparkData} trend={`${driver.trips || 0} total`} trendUp={(driver.trips || 0) > 0} delay={80} />
             <MiniStat label="Rating" value={driver.rating?.toFixed(1) || '–'} icon={<Star className="w-4 h-4" />} color="#F59E0B" delay={160} />
             <MiniStat label="Acceptance" value={`${driver.acceptanceRate || 0}%`} icon={<TrendingUp className="w-4 h-4" />} color="#8B5CF6" delay={240} />
@@ -162,7 +162,7 @@ export function DriverApp() {
         <div className="max-w-2xl mx-auto space-y-6 pb-24 lg:pb-4">
           <div className="text-center bg-gradient-to-br from-blue-600/10 to-surface-800/30 border border-blue-500/10 rounded-3xl p-8 animate-fade-in">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Available Balance</div>
-            <div className="text-4xl font-bold text-white animate-count-up">{formatCurrency(driver.earnings)}</div>
+            <div className="text-4xl font-bold text-white animate-count-up">{formatCurrency(driver.earnings || 0)}</div>
             <div className="flex items-center justify-center gap-1 mt-2"><Sparkline data={earningsSparkData} width={100} height={30} color="#3B82F6" /></div>
             <button onClick={() => setShowPayout(true)} disabled={!driver.earnings || driver.earnings <= 0}
               className="btn-primary bg-blue-600 mt-4 text-sm disabled:bg-slate-700"><Banknote className="w-4 h-4 inline mr-2" />Cash Out</button>
@@ -243,7 +243,7 @@ export function DriverApp() {
                 markers={[
                   ...db.users.filter((u) => u.role === 'farmer' && u.address).map((m) => ({
                     id: m.id, lat: 26.655 + Math.random() * 0.02, lng: -80.275 + Math.random() * 0.02,
-                    type: 'merchant' as const, label: m.name, sublabel: 'Merchant',
+                    type: 'merchant' as const, label: m.name, sublabel: 'Farmer',
                   })),
                 ]}
                 height="350px"
@@ -265,7 +265,7 @@ export function DriverApp() {
               { color: '#2563EB', label: 'You' },
               { color: '#8B5CF6', label: 'Pickup' },
               { color: '#10B981', label: 'Dropoff' },
-              { color: '#EA580C', label: 'Merchant' },
+              { color: '#EA580C', label: 'Farmer' },
             ].map((l) => (
               <div key={l.label} className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: l.color }} />

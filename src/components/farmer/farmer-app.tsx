@@ -1010,14 +1010,22 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
           <div className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
             <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">📋 Subscription Plans</div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-              {[
-                { name: 'Starter', price: 0, period: 'Free forever', color: '#64748B', features: ['Up to 10 products', 'Basic storefront', 'Standard listing', 'Email support', 'Basic analytics'], current: true },
-                { name: 'Growth', price: 300, period: '/month', color: '#EA580C', popular: true, features: ['Unlimited products', 'Featured storefront badge', 'Priority listing in search', 'AI product descriptions', 'Advanced analytics & reports', 'Promotional tools', 'Priority support', 'Custom farm page URL'] },
-                { name: 'Enterprise', price: 799, period: '/month', color: '#F59E0B', features: ['Everything in Growth', 'Dedicated account manager', 'White-label delivery', 'API access', 'Multi-location support', 'Custom integrations', 'Bulk upload tools', 'Revenue sharing optimization'] },
-              ].map((tier, i) => (
-                <div key={tier.name} className={cn('card p-5 relative overflow-hidden animate-fade-in-up', tier.popular && 'border-orange-500/30')} style={{ animationDelay: `${(i + 1) * 80}ms` }}>
-                  {tier.popular && (
+              {(() => {
+                const currentTier = farmer.subscription?.tier || 'free';
+                const tiers = [
+                  { name: 'Starter', tier: 'free', price: 0, period: 'Free forever', color: '#64748B', features: ['Up to 10 products', 'Basic storefront', 'Standard listing', 'Email support', 'Basic analytics'] },
+                  { name: 'Growth', tier: 'premium', price: 300, period: '/month', color: '#EA580C', popular: true, features: ['Unlimited products', 'Featured storefront badge', 'Priority listing in search', 'AI product descriptions', 'Advanced analytics & reports', 'Promotional tools', 'Priority support', 'Custom farm page URL'] },
+                  { name: 'Enterprise', tier: 'enterprise', price: 799, period: '/month', color: '#F59E0B', features: ['Everything in Growth', 'Dedicated account manager', 'White-label delivery', 'API access', 'Multi-location support', 'Custom integrations', 'Bulk upload tools', 'Revenue sharing optimization'] },
+                ];
+                return tiers.map((tier, i) => {
+                  const isCurrent = tier.tier === currentTier;
+                  return (
+                <div key={tier.name} className={cn('card p-5 relative overflow-hidden animate-fade-in-up', tier.popular && !isCurrent && 'border-orange-500/30', isCurrent && 'border-emerald-500/30')} style={{ animationDelay: `${(i + 1) * 80}ms` }}>
+                  {tier.popular && !isCurrent && (
                     <div className="absolute top-0 right-0 bg-orange-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl">RECOMMENDED</div>
+                  )}
+                  {isCurrent && (
+                    <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl">ACTIVE</div>
                   )}
                   <div className="flex items-center gap-2 mb-3">
                     {tier.price === 0 ? <Leaf className="w-5 h-5" style={{ color: tier.color }} /> : tier.popular ? <Rocket className="w-5 h-5" style={{ color: tier.color }} /> : <Crown className="w-5 h-5" style={{ color: tier.color }} />}
@@ -1035,11 +1043,13 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
                       </li>
                     ))}
                   </ul>
-                  <button onClick={() => !tier.current && setShowSubscriptionModal(true)} className={cn('w-full btn-primary text-sm', tier.current ? 'bg-white/5 text-slate-400 cursor-default' : tier.popular ? 'bg-orange-600' : 'bg-white/10 text-white')}>
-                    {tier.current ? '✓ Current Plan' : tier.popular ? 'Upgrade to Growth' : 'Contact Sales'}
+                  <button onClick={() => !isCurrent && setShowSubscriptionModal(true)} className={cn('w-full btn-primary text-sm', isCurrent ? 'bg-emerald-500/10 text-emerald-400 cursor-default' : tier.popular ? 'bg-orange-600' : 'bg-white/10 text-white')}>
+                    {isCurrent ? '✓ Current Plan' : tier.popular ? 'Upgrade to Growth' : 'Contact Sales'}
                   </button>
                 </div>
-              ))}
+                  );
+                });
+              })()}
             </div>
           </div>
 

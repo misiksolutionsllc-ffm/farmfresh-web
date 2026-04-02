@@ -135,28 +135,28 @@ export function AdminApp() {
 
           {/* Full map */}
           <GodModeMapView
-            drivers={db.users.filter((u) => u.role === 'driver').map((d) => {
+            drivers={db.users.filter((u) => u.role === 'driver').map((d, i) => {
               const loc = db.driverLocations.find((l) => l.driverId === d.id);
               return {
                 id: d.id,
                 name: d.name,
-                lat: loc?.latitude || 26.655 + Math.random() * 0.025,
-                lng: loc?.longitude || -80.275 + Math.random() * 0.025,
+                lat: loc?.latitude || 26.655 + (i * 0.006),
+                lng: loc?.longitude || -80.275 + (i * 0.005),
                 online: d.online,
               };
             })}
-            merchants={db.users.filter((u) => u.role === 'farmer').map((m) => ({
+            merchants={db.users.filter((u) => u.role === 'farmer').map((m, i) => ({
               id: m.id,
-              name: m.name,
-              lat: m.address ? 26.66 + Math.random() * 0.015 : 26.655,
-              lng: m.address ? -80.27 + Math.random() * 0.015 : -80.268,
+              name: m.businessName || m.name,
+              lat: m.address ? 26.660 + (i * 0.004) : 26.655,
+              lng: m.address ? -80.270 + (i * 0.003) : -80.268,
             }))}
-            deliveries={db.deliveries.map((d) => ({
+            deliveries={db.deliveries.map((d, i) => ({
               id: d.id,
-              pickupLat: 26.66 + Math.random() * 0.02,
-              pickupLng: -80.275 + Math.random() * 0.02,
-              dropoffLat: 26.65 + Math.random() * 0.02,
-              dropoffLng: -80.260 + Math.random() * 0.02,
+              pickupLat: 26.660 + (i * 0.005),
+              pickupLng: -80.275 + (i * 0.004),
+              dropoffLat: 26.650 + (i * 0.005),
+              dropoffLng: -80.260 + (i * 0.004),
               status: d.status,
             }))}
           />

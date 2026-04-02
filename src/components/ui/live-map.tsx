@@ -3,17 +3,44 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
-// Wellington, FL area coordinates (FarmFresh HQ)
-const WELLINGTON_CENTER = { lat: 26.6587, lng: -80.2684 };
+const DEFAULT_CENTER = { lat: 26.6587, lng: -80.2684 };
 
+// ============================================
+// REAL GPS HOOK
+// ============================================
+export function useGPS() {
+  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const watchRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setError('Geolocation not supported');
+      setLoading(false);
+      return;
+    }
+    const onOk = (p: GeolocationPosition) => {
+      setPosition({ lat: p.coords.latitude, lng: p.coords.longitude });
+      setLoading(false);
+      setError(null);
+    };
+    const onErr = (e: GeolocationPositionError) => { setError(e.message); setLoading(false); };
+    navigator.geolocation.getCurrentPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+    watchRef.current = navigator.geolocation.watchPosition(onOk, onErr, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+    return () => { if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current); };
+  }, []);
+
+  return { position, error, loading };
+}
+
+// ============================================
+// TYPES
+// ============================================
 interface MapMarker {
-  id: string;
-  lat: number;
-  lng: number;
-  type: 'driver' | 'customer' | 'merchant' | 'pickup' | 'dropoff';
-  label: string;
-  sublabel?: string;
-  pulse?: boolean;
+  id: string; lat: number; lng: number;
+  type: 'driver' | 'customer' | 'merchant' | 'pickup' | 'dropoff' | 'you';
+  label: string; sublabel?: string; pulse?: boolean;
 }
 
 interface MapRoute {
@@ -23,216 +50,121 @@ interface MapRoute {
 }
 
 interface LiveMapProps {
-  markers?: MapMarker[];
-  routes?: MapRoute[];
+  markers?: MapMarker[]; routes?: MapRoute[];
   center?: { lat: number; lng: number };
-  zoom?: number;
-  height?: string;
-  showDriverLocation?: boolean;
-  className?: string;
+  zoom?: number; height?: string;
+  showMyLocation?: boolean; className?: string;
 }
 
-const MARKER_ICONS: Record<string, { emoji: string; bg: string; border: string }> = {
+const ICONS: Record<string, { emoji: string; bg: string; border: string }> = {
   driver: { emoji: '🚗', bg: '#2563EB', border: '#1D4ED8' },
   customer: { emoji: '🏠', bg: '#059669', border: '#047857' },
-  merchant: { emoji: '🏪', bg: '#EA580C', border: '#C2410C' },
+  merchant: { emoji: '🌾', bg: '#EA580C', border: '#C2410C' },
   pickup: { emoji: '📦', bg: '#8B5CF6', border: '#7C3AED' },
   dropoff: { emoji: '📍', bg: '#10B981', border: '#059669' },
+  you: { emoji: '📱', bg: '#2563EB', border: '#1E40AF' },
 };
 
-export function LiveMap({
-  markers = [],
-  routes = [],
-  center = WELLINGTON_CENTER,
-  zoom = 13,
-  height = '400px',
-  showDriverLocation = false,
-  className,
-}: LiveMapProps) {
+// ============================================
+// LIVE MAP
+// ============================================
+export function LiveMap({ markers = [], routes = [], center, zoom = 14, height = '400px', showMyLocation = false, className }: LiveMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [driverPos, setDriverPos] = useState(center);
+  const mapInst = useRef<any>(null);
+  const layerRef = useRef<any>(null);
+  const [ready, setReady] = useState(false);
+  const { position: gps, error: gpsErr, loading: gpsLoad } = useGPS();
+  const effCenter = center || gps || DEFAULT_CENTER;
 
-  // Simulate driver movement
+  // Load Leaflet
   useEffect(() => {
-    if (!showDriverLocation) return;
-    const interval = setInterval(() => {
-      setDriverPos((prev) => ({
-        lat: prev.lat + (Math.random() - 0.5) * 0.002,
-        lng: prev.lng + (Math.random() - 0.5) * 0.002,
-      }));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [showDriverLocation]);
-
-  // Load Leaflet dynamically
-  useEffect(() => {
-    if (typeof window === 'undefined' || loaded) return;
-
-    // Inject Leaflet CSS
+    if (typeof window === 'undefined' || ready) return;
     if (!document.querySelector('link[href*="leaflet"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
+      const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(l);
     }
-
-    // Inject Leaflet JS
     if (!(window as any).L) {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => setLoaded(true);
-      document.head.appendChild(script);
-    } else {
-      setLoaded(true);
-    }
+      const s = document.createElement('script'); s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload = () => setReady(true); document.head.appendChild(s);
+    } else setReady(true);
   }, []);
 
-  // Initialize map
+  // Styles
   useEffect(() => {
-    if (!loaded || !mapRef.current || !(window as any).L) return;
+    if (document.querySelector('#map-css')) return;
+    const s = document.createElement('style'); s.id = 'map-css';
+    s.textContent = `
+      @keyframes mPulse{0%,100%{box-shadow:0 4px 12px rgba(0,0,0,.4),0 0 0 0 rgba(37,99,235,.4)}50%{box-shadow:0 4px 12px rgba(0,0,0,.4),0 0 0 14px rgba(37,99,235,0)}}
+      @keyframes gpsDot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.7}}
+      .custom-marker{background:none!important;border:none!important}
+      .leaflet-popup-content-wrapper{background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+      .leaflet-popup-tip{background:#fff}`;
+    document.head.appendChild(s);
+  }, []);
+
+  // Map init + update
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
     const L = (window as any).L;
 
-    // Clean up previous map
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
+    if (!mapInst.current) {
+      const m = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([effCenter.lat, effCenter.lng], zoom);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(m);
+      L.control.zoom({ position: 'topright' }).addTo(m);
+      mapInst.current = m;
+      layerRef.current = L.layerGroup().addTo(m);
     }
 
-    const map = L.map(mapRef.current, {
-      zoomControl: false,
-      attributionControl: false,
-    }).setView([center.lat, center.lng], zoom);
+    const map = mapInst.current;
+    const layer = layerRef.current;
+    layer.clearLayers();
 
-    // Dark tile layer
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-    }).addTo(map);
-
-    // Zoom control on right
-    L.control.zoom({ position: 'topright' }).addTo(map);
-
-    // Add markers
-    const allMarkers = [...markers];
-
-    // Add driver position marker
-    if (showDriverLocation) {
-      allMarkers.push({
-        id: 'driver-live',
-        lat: driverPos.lat,
-        lng: driverPos.lng,
-        type: 'driver',
-        label: 'Your Location',
-        sublabel: 'Live',
-        pulse: true,
-      });
+    const all = [...markers];
+    if (showMyLocation && gps) {
+      all.push({ id: 'me', lat: gps.lat, lng: gps.lng, type: 'you', label: 'You are here', sublabel: `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`, pulse: true });
     }
 
-    allMarkers.forEach((m) => {
-      const iconConfig = MARKER_ICONS[m.type] || MARKER_ICONS.customer;
-
+    all.forEach((m) => {
+      const ic = ICONS[m.type] || ICONS.customer;
+      const isMe = m.type === 'you';
       const icon = L.divIcon({
         className: 'custom-marker',
-        html: `
-          <div style="
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            background: ${iconConfig.bg};
-            border: 3px solid ${iconConfig.border};
-            border-radius: 50% 50% 50% 4px;
-            transform: rotate(-45deg);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            ${m.pulse ? 'animation: markerPulse 2s ease-in-out infinite;' : ''}
-          ">
-            <span style="transform: rotate(45deg); font-size: 18px;">${iconConfig.emoji}</span>
-          </div>
-        `,
-        iconSize: [42, 42],
-        iconAnchor: [4, 42],
-        popupAnchor: [17, -38],
+        html: isMe
+          ? `<div style="width:18px;height:18px;background:#2563EB;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 3px rgba(37,99,235,.3),0 2px 8px rgba(0,0,0,.3);animation:gpsDot 2s ease-in-out infinite"></div>`
+          : `<div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:${ic.bg};border:3px solid ${ic.border};border-radius:50% 50% 50% 4px;transform:rotate(-45deg);box-shadow:0 4px 12px rgba(0,0,0,.4);${m.pulse?'animation:mPulse 2s ease-in-out infinite':''}"><span style="transform:rotate(45deg);font-size:17px">${ic.emoji}</span></div>`,
+        iconSize: isMe ? [18,18] : [40,40],
+        iconAnchor: isMe ? [9,9] : [4,40],
+        popupAnchor: isMe ? [0,-12] : [16,-36],
       });
-
-      const marker = L.marker([m.lat, m.lng], { icon }).addTo(map);
-
-      marker.bindPopup(`
-        <div style="font-family: 'DM Sans', sans-serif; min-width: 150px;">
-          <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 2px;">${m.label}</div>
-          ${m.sublabel ? `<div style="font-size: 12px; color: #64748b;">${m.sublabel}</div>` : ''}
-          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}</div>
-        </div>
-      `);
+      L.marker([m.lat, m.lng], { icon }).addTo(layer).bindPopup(`<div style="font-family:'DM Sans',sans-serif;min-width:130px"><b style="font-size:14px;color:#0f172a">${m.label}</b>${m.sublabel?`<div style="font-size:12px;color:#64748b">${m.sublabel}</div>`:''}</div>`);
     });
 
-    // Draw routes
-    routes.forEach((route) => {
-      // Simulate a curved route with intermediate points
-      const midLat = (route.from.lat + route.to.lat) / 2 + (Math.random() - 0.5) * 0.01;
-      const midLng = (route.from.lng + route.to.lng) / 2 + (Math.random() - 0.5) * 0.01;
-
-      const polyline = L.polyline(
-        [
-          [route.from.lat, route.from.lng],
-          [midLat, midLng],
-          [route.to.lat, route.to.lng],
-        ],
-        {
-          color: route.color || '#3B82F6',
-          weight: 4,
-          opacity: 0.8,
-          dashArray: '8, 8',
-          smoothFactor: 2,
-        }
-      ).addTo(map);
+    routes.forEach((r) => {
+      L.polyline([[r.from.lat,r.from.lng],[r.to.lat,r.to.lng]], { color: r.color||'#3B82F6', weight: 4, opacity: .8, dashArray: '8,8' }).addTo(layer);
     });
 
-    // Fit bounds if we have markers
-    if (allMarkers.length > 1) {
-      const bounds = L.latLngBounds(allMarkers.map((m: MapMarker) => [m.lat, m.lng]));
-      map.fitBounds(bounds, { padding: [50, 50] });
+    if (all.length > 1) {
+      map.fitBounds(L.latLngBounds(all.map((m: MapMarker)=>[m.lat,m.lng])), { padding: [50,50], maxZoom: 16 });
+    } else if (all.length === 1) {
+      map.setView([all[0].lat, all[0].lng], zoom);
+    } else if (gps) {
+      map.setView([gps.lat, gps.lng], zoom);
     }
+  }, [ready, markers, routes, gps, showMyLocation, effCenter, zoom]);
 
-    mapInstanceRef.current = map;
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [loaded, markers, routes, center, zoom, showDriverLocation, driverPos]);
-
-  // Inject marker pulse animation
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (document.querySelector('#marker-pulse-style')) return;
-    const style = document.createElement('style');
-    style.id = 'marker-pulse-style';
-    style.textContent = `
-      @keyframes markerPulse {
-        0%, 100% { box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 0 0 rgba(37,99,235,0.4); }
-        50% { box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 0 12px rgba(37,99,235,0); }
-      }
-      .custom-marker { background: none !important; border: none !important; }
-      .leaflet-popup-content-wrapper {
-        background: #fff; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-      }
-      .leaflet-popup-tip { background: #fff; }
-    `;
-    document.head.appendChild(style);
-  }, []);
+  useEffect(() => { return () => { if (mapInst.current) { mapInst.current.remove(); mapInst.current = null; } }; }, []);
 
   return (
     <div className={cn('relative rounded-2xl overflow-hidden border border-white/5', className)} style={{ height }}>
-      {!loaded && (
+      {(!ready || gpsLoad) && (
         <div className="absolute inset-0 bg-surface-800 flex items-center justify-center z-10">
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-xs text-slate-500">Loading map...</p>
+            <p className="text-xs text-slate-500">{gpsLoad ? 'Getting your location...' : 'Loading map...'}</p>
           </div>
+        </div>
+      )}
+      {gpsErr && !gps && (
+        <div className="absolute top-2 left-2 right-2 z-20 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+          <span className="text-xs text-amber-400">📍 Enable location access for real-time GPS tracking</span>
         </div>
       )}
       <div ref={mapRef} className="w-full h-full" />
@@ -240,78 +172,37 @@ export function LiveMap({
   );
 }
 
-// Pre-configured driver map
-export function DriverMapView({
-  pickupLat,
-  pickupLng,
-  pickupLabel,
-  dropoffLat,
-  dropoffLng,
-  dropoffLabel,
-  driverLat,
-  driverLng,
-}: {
-  pickupLat?: number;
-  pickupLng?: number;
-  pickupLabel?: string;
-  dropoffLat?: number;
-  dropoffLng?: number;
-  dropoffLabel?: string;
-  driverLat?: number;
-  driverLng?: number;
+// ============================================
+// DRIVER MAP VIEW
+// ============================================
+export function DriverMapView({ pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel }: {
+  pickupLat?: number; pickupLng?: number; pickupLabel?: string;
+  dropoffLat?: number; dropoffLng?: number; dropoffLabel?: string;
 }) {
   const markers: MapMarker[] = [];
   const routes: MapRoute[] = [];
-
-  if (driverLat && driverLng) {
-    markers.push({ id: 'driver', lat: driverLat, lng: driverLng, type: 'driver', label: 'You', sublabel: 'Current location', pulse: true });
-  }
-  if (pickupLat && pickupLng) {
-    markers.push({ id: 'pickup', lat: pickupLat, lng: pickupLng, type: 'pickup', label: pickupLabel || 'Pickup', sublabel: 'Merchant location' });
-  }
-  if (dropoffLat && dropoffLng) {
-    markers.push({ id: 'dropoff', lat: dropoffLat, lng: dropoffLng, type: 'dropoff', label: dropoffLabel || 'Dropoff', sublabel: 'Customer location' });
-  }
-
-  if (pickupLat && pickupLng && dropoffLat && dropoffLng) {
-    if (driverLat && driverLng) {
-      routes.push({ from: { lat: driverLat, lng: driverLng }, to: { lat: pickupLat, lng: pickupLng }, color: '#3B82F6' });
-    }
-    routes.push({ from: { lat: pickupLat, lng: pickupLng }, to: { lat: dropoffLat, lng: dropoffLng }, color: '#10B981' });
-  }
-
-  return <LiveMap markers={markers} routes={routes} height="350px" showDriverLocation={!driverLat} />;
+  if (pickupLat && pickupLng) markers.push({ id: 'pickup', lat: pickupLat, lng: pickupLng, type: 'pickup', label: pickupLabel || 'Pickup', sublabel: 'Farmer location' });
+  if (dropoffLat && dropoffLng) markers.push({ id: 'dropoff', lat: dropoffLat, lng: dropoffLng, type: 'dropoff', label: dropoffLabel || 'Dropoff', sublabel: 'Customer location' });
+  if (pickupLat && pickupLng && dropoffLat && dropoffLng) routes.push({ from: { lat: pickupLat, lng: pickupLng }, to: { lat: dropoffLat, lng: dropoffLng }, color: '#10B981' });
+  return <LiveMap markers={markers} routes={routes} height="350px" showMyLocation />;
 }
 
-// Pre-configured God Mode overview map
-export function GodModeMapView({
-  drivers,
-  merchants,
-  deliveries,
-}: {
+// ============================================
+// GOD MODE MAP VIEW
+// ============================================
+export function GodModeMapView({ drivers, merchants, deliveries }: {
   drivers: { id: string; name: string; lat: number; lng: number; online?: boolean }[];
   merchants: { id: string; name: string; lat: number; lng: number }[];
   deliveries: { id: string; pickupLat: number; pickupLng: number; dropoffLat: number; dropoffLng: number; status: string }[];
 }) {
   const markers: MapMarker[] = [
-    ...drivers.filter((d) => d.online).map((d) => ({
-      id: d.id, lat: d.lat, lng: d.lng, type: 'driver' as const, label: d.name, sublabel: '🟢 Online', pulse: true,
-    })),
-    ...drivers.filter((d) => !d.online).map((d) => ({
-      id: d.id, lat: d.lat, lng: d.lng, type: 'driver' as const, label: d.name, sublabel: '⚫ Offline',
-    })),
-    ...merchants.map((m) => ({
-      id: m.id, lat: m.lat, lng: m.lng, type: 'merchant' as const, label: m.name, sublabel: 'Merchant',
-    })),
+    ...drivers.filter(d=>d.online).map(d=>({ id:d.id,lat:d.lat,lng:d.lng,type:'driver' as const,label:d.name,sublabel:'🟢 Online',pulse:true })),
+    ...drivers.filter(d=>!d.online).map(d=>({ id:d.id,lat:d.lat,lng:d.lng,type:'driver' as const,label:d.name,sublabel:'⚫ Offline' })),
+    ...merchants.map(m=>({ id:m.id,lat:m.lat,lng:m.lng,type:'merchant' as const,label:m.name,sublabel:'Farmer' })),
   ];
-
-  const routes: MapRoute[] = deliveries
-    .filter((d) => d.status !== 'Delivered')
-    .map((d) => ({
-      from: { lat: d.pickupLat, lng: d.pickupLng },
-      to: { lat: d.dropoffLat, lng: d.dropoffLng },
-      color: d.status === 'Pending' ? '#F59E0B' : '#3B82F6',
-    }));
-
-  return <LiveMap markers={markers} routes={routes} height="500px" zoom={12} />;
+  const routes: MapRoute[] = deliveries.filter(d=>d.status!=='Delivered').map(d=>({
+    from:{lat:d.pickupLat,lng:d.pickupLng}, to:{lat:d.dropoffLat,lng:d.dropoffLng},
+    color: d.status==='Pending'?'#F59E0B':'#3B82F6',
+  }));
+  return <LiveMap markers={markers} routes={routes} height="500px" zoom={13} showMyLocation />;
 }

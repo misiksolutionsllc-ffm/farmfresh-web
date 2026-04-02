@@ -194,11 +194,11 @@ export function DriverApp() {
           {activeDelivery ? (
             <>
               <DriverMapView
-                pickupLat={26.6620 + Math.random() * 0.01}
-                pickupLng={-80.2710 + Math.random() * 0.01}
+                pickupLat={26.6620}
+                pickupLng={-80.2710}
                 pickupLabel={activeDelivery.pickup}
-                dropoffLat={26.6540 + Math.random() * 0.01}
-                dropoffLng={-80.2620 + Math.random() * 0.01}
+                dropoffLat={26.6540}
+                dropoffLng={-80.2620}
                 dropoffLabel={activeDelivery.dropoff}
               />
               {/* Delivery info card below map */}
@@ -241,13 +241,13 @@ export function DriverApp() {
               {/* Idle map showing area and merchants */}
               <LiveMap
                 markers={[
-                  ...db.users.filter((u) => u.role === 'farmer' && u.address).map((m) => ({
-                    id: m.id, lat: 26.655 + Math.random() * 0.02, lng: -80.275 + Math.random() * 0.02,
-                    type: 'merchant' as const, label: m.name, sublabel: 'Farmer',
+                  ...db.users.filter((u) => u.role === 'farmer').map((m, i) => ({
+                    id: m.id, lat: 26.655 + (i * 0.005), lng: -80.275 + (i * 0.004),
+                    type: 'merchant' as const, label: m.businessName || m.name, sublabel: 'Farmer',
                   })),
                 ]}
                 height="350px"
-                showDriverLocation
+                showMyLocation
               />
               <div className="bg-surface-800/50 border border-white/5 rounded-2xl p-4 text-center">
                 <p className="text-slate-400 text-sm">

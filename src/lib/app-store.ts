@@ -24,20 +24,31 @@ interface AppState {
   currentUserId: string | null;
   toast: Toast | null;
   sidebarOpen: boolean;
+  onboardingSeen: boolean;
+  authedEmail: string | null;
+  authedProvider: 'email' | 'google' | 'apple' | null;
   dispatch: (action: Action) => void;
   setRole: (role: UserRole | null) => void;
   setCurrentUserId: (id: string | null) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   hideToast: () => void;
   setSidebarOpen: (open: boolean) => void;
+  completeOnboarding: () => void;
+  signIn: (email: string, provider: 'email' | 'google' | 'apple') => void;
+  signOut: () => void;
 }
 
-export const useAppStore = create<AppState>()((set, get) => ({
-  db: INITIAL_DB,
-  role: null,
-  currentUserId: null,
-  toast: null,
-  sidebarOpen: false,
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      db: INITIAL_DB,
+      role: null,
+      currentUserId: null,
+      toast: null,
+      sidebarOpen: false,
+      onboardingSeen: false,
+      authedEmail: null,
+      authedProvider: null,
 
   dispatch: (action: Action) => {
     set((state) => {
@@ -79,7 +90,34 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   hideToast: () => set({ toast: null }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-}));
+
+  completeOnboarding: () => set({ onboardingSeen: true }),
+
+  signIn: (email, provider) => {
+    set({ authedEmail: email, authedProvider: provider });
+    // Update current user email in DB
+    const { db, currentUserId } = get();
+    if (currentUserId) {
+      const newDb = dbReducer(db, { type: 'UPDATE_USER_PROFILE', userId: currentUserId, updates: { email } });
+      saveDatabase(newDb);
+      set({ db: newDb });
+    }
+  },
+
+  signOut: () => {
+    set({ role: null, currentUserId: null, authedEmail: null, authedProvider: null });
+  },
+}),
+    {
+      name: 'farmfresh-app-state',
+      partialize: (state) => ({
+        onboardingSeen: state.onboardingSeen,
+        authedEmail: state.authedEmail,
+        authedProvider: state.authedProvider,
+      }),
+    }
+  )
+);
 
 // Initialize from localStorage on client
 if (typeof window !== 'undefined') {

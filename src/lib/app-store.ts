@@ -110,6 +110,7 @@ export const useAppStore = create<AppState>()(
 }),
     {
       name: 'farmfresh-app-state',
+      version: 2,
       partialize: (state) => ({
         onboardingSeen: state.onboardingSeen,
         authedEmail: state.authedEmail,

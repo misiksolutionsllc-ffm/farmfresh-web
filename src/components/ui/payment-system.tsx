@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/app-store';
 import { Modal } from '@/components/ui/modal';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -9,28 +9,76 @@ import {
   Smartphone, Trash2, Star, DollarSign, ArrowRight, Zap, Crown,
   Rocket, Leaf, AlertTriangle, Clock, BadgePercent, Gift, Wallet,
 } from 'lucide-react';
+import { loadStripe, Stripe, StripeElements } from '@stripe/stripe-js';
 
 // ============================================================
-// TYPES
+// STRIPE SETUP
 // ============================================================
-interface PaymentMethod {
-  id: string;
-  type: 'card' | 'bank' | 'apple_pay';
-  brand?: string;
-  last4: string;
-  expiry?: string;
-  name: string;
-  isDefault: boolean;
-  bankName?: string;
-  accountType?: string;
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+
+// Card Element Styles
+const CARD_STYLE = {
+  style: {
+    base: {
+      color: '#ffffff',
+      fontFamily: '"DM Sans", system-ui, sans-serif',
+      fontSize: '16px',
+      fontSmoothing: 'antialiased',
+      '::placeholder': { color: '#475569' },
+    },
+    invalid: { color: '#EF4444', iconColor: '#EF4444' },
+  },
+};
+
+// ============================================================
+// STRIPE CARD INPUT COMPONENT
+// ============================================================
+function StripeCardInput({ onReady, onError }: {
+  onReady: (stripe: Stripe, elements: StripeElements, cardElement: any) => void;
+  onError?: (msg: string) => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (mounted) return;
+    let cancelled = false;
+
+    async function init() {
+      const stripe = await stripePromise;
+      if (!stripe || cancelled) return;
+
+      const elements = stripe.elements();
+      const card = elements.create('card', CARD_STYLE);
+      const el = document.getElementById('stripe-card-element');
+      if (!el || cancelled) return;
+
+      card.mount('#stripe-card-element');
+      card.on('change', (e: any) => {
+        if (e.error) { setError(e.error.message); onError?.(e.error.message); }
+        else { setError(''); }
+      });
+
+      onReady(stripe, elements, card);
+      setMounted(true);
+    }
+
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(init, 100);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, []);
+
+  return (
+    <div>
+      <div id="stripe-card-element" className="px-4 py-4 bg-surface-800 border border-white/5 rounded-xl min-h-[44px]" />
+      {error && <p className="text-xs text-red-400 mt-1.5 px-1">{error}</p>}
+      <div className="flex items-center gap-1.5 mt-2 px-1">
+        <Lock className="w-3 h-3 text-slate-600" />
+        <span className="text-[10px] text-slate-600">Secured by Stripe • PCI DSS compliant</span>
+      </div>
+    </div>
+  );
 }
-
-const DEFAULT_METHODS: PaymentMethod[] = [
-  { id: 'visa-4242', type: 'card', brand: 'Visa', last4: '4242', expiry: '12/28', name: 'Personal Visa', isDefault: true },
-  { id: 'apple-pay', type: 'apple_pay', last4: '', name: 'Apple Pay', isDefault: false },
-];
-
-const DEFAULT_BANK: PaymentMethod = { id: 'chase-4821', type: 'bank', last4: '4821', name: 'Chase Bank', isDefault: true, bankName: 'Chase', accountType: 'Checking' };
 
 // ============================================================
 // CONSUMER CHECKOUT MODAL
@@ -41,19 +89,18 @@ export function CheckoutModal({ open, onClose, cart, cartTotal, onPlaceOrder }: 
   cartTotal: number; onPlaceOrder: (tip: number, promoCode: string) => void;
 }) {
   const { db, showToast } = useAppStore();
-  const [step, setStep] = useState<'review' | 'payment' | 'confirm'>('review');
-  const [selectedPayment, setSelectedPayment] = useState('visa-4242');
+  const [step, setStep] = useState<'review' | 'payment' | 'processing' | 'confirm'>('review');
   const [tip, setTip] = useState(0);
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoDiscount, setPromoDiscount] = useState(0);
-  const [processing, setProcessing] = useState(false);
+  const [stripeRef, setStripeRef] = useState<{ stripe: Stripe; card: any } | null>(null);
+  const [payError, setPayError] = useState('');
 
   const deliveryFee = db.settings.deliveryBaseFee;
-  const serviceFee = cartTotal * (db.settings.platformFeePercent / 100);
+  const platformFee = cartTotal * (db.settings.platformFeePercent / 100);
   const tax = cartTotal * db.settings.taxRate;
-  const discount = promoDiscount;
-  const total = cartTotal + deliveryFee + serviceFee + tax + tip - discount;
+  const total = cartTotal + deliveryFee + platformFee + tax + tip - promoDiscount;
 
   const applyPromo = () => {
     const promo = db.promos.find((p) => p.code.toUpperCase() === promoCode.toUpperCase() && p.active);
@@ -61,22 +108,50 @@ export function CheckoutModal({ open, onClose, cart, cartTotal, onPlaceOrder }: 
       const d = promo.type === 'percent' ? cartTotal * (promo.discount / 100) : promo.type === 'flat' ? promo.discount : deliveryFee;
       setPromoDiscount(Math.min(d, cartTotal));
       setPromoApplied(true);
-      showToast(`Promo applied! -${formatCurrency(d)}`);
     } else {
       showToast('Invalid promo code', 'error');
     }
   };
 
-  const processPayment = () => {
-    setProcessing(true);
-    setTimeout(() => {
-      onPlaceOrder(tip, promoApplied ? promoCode : '');
-      setProcessing(false);
-      setStep('confirm');
-    }, 1500);
+  const processPayment = async () => {
+    if (!stripeRef) { showToast('Card not ready', 'error'); return; }
+    setStep('processing');
+    setPayError('');
+
+    try {
+      // Create PaymentIntent on server
+      const res = await fetch('/api/stripe/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Math.round(total * 100), // cents
+          metadata: { type: 'order', items: cart.length.toString(), total: total.toFixed(2) },
+        }),
+      });
+      const { clientSecret, error: apiErr } = await res.json();
+      if (apiErr) throw new Error(apiErr);
+
+      // Confirm payment with card
+      const { error: stripeErr, paymentIntent } = await stripeRef.stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: stripeRef.card },
+      });
+
+      if (stripeErr) throw new Error(stripeErr.message);
+
+      if (paymentIntent?.status === 'succeeded') {
+        onPlaceOrder(tip, promoCode);
+        setStep('confirm');
+      } else {
+        throw new Error('Payment not completed');
+      }
+    } catch (err: any) {
+      setPayError(err.message || 'Payment failed');
+      setStep('payment');
+      showToast(err.message || 'Payment failed', 'error');
+    }
   };
 
-  const handleClose = () => { setStep('review'); setTip(0); setPromoCode(''); setPromoApplied(false); setPromoDiscount(0); onClose(); };
+  const handleClose = () => { setStep('review'); setTip(0); setPromoCode(''); setPromoApplied(false); setPromoDiscount(0); setPayError(''); onClose(); };
 
   if (step === 'confirm') {
     return (
@@ -85,10 +160,24 @@ export function CheckoutModal({ open, onClose, cart, cartTotal, onPlaceOrder }: 
           <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4 animate-scale-in">
             <Check className="w-8 h-8 text-emerald-400" />
           </div>
-          <h3 className="text-xl font-bold text-white mb-2">Order Placed!</h3>
-          <p className="text-sm text-slate-400 mb-1">Total charged: <span className="text-white font-bold">{formatCurrency(total)}</span></p>
-          <p className="text-xs text-slate-500 mb-6">You'll receive updates as your order is prepared and delivered.</p>
-          <button onClick={handleClose} className="w-full btn-primary bg-emerald-600">Done</button>
+          <h3 className="text-xl font-bold text-white mb-2">Payment Successful!</h3>
+          <p className="text-2xl font-bold text-emerald-400 mb-1">{formatCurrency(total)}</p>
+          <p className="text-sm text-slate-400 mb-6">Your order is being prepared</p>
+          <button onClick={handleClose} className="w-full btn-primary bg-emerald-600">Track Order</button>
+        </div>
+      </Modal>
+    );
+  }
+
+  if (step === 'processing') {
+    return (
+      <Modal open={open} onClose={() => {}} variant="dialog" maxWidth="max-w-sm">
+        <div className="p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4">
+            <div className="w-8 h-8 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-2">Processing Payment...</h3>
+          <p className="text-sm text-slate-400">Securely charging your card via Stripe</p>
         </div>
       </Modal>
     );
@@ -99,133 +188,99 @@ export function CheckoutModal({ open, onClose, cart, cartTotal, onPlaceOrder }: 
       <div className="p-6 space-y-4">
         {step === 'review' && (
           <>
-            {/* Order Summary */}
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Order Summary</div>
-            <div className="max-h-40 overflow-y-auto space-y-2 scrollbar-none">
+            {/* Items */}
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Order Summary ({cart.length} items)</div>
+            <div className="max-h-40 overflow-y-auto space-y-2">
               {cart.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-surface-800 rounded-lg flex items-center justify-center overflow-hidden">
-                      {item.image?.startsWith?.('data:') ? <img src={item.image} className="w-full h-full object-cover" /> : <span className="text-sm">{item.image}</span>}
-                    </div>
-                    <span className="text-slate-300">{item.name} × {item.qty}</span>
+                <div key={item.id} className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-surface-800 rounded-lg flex items-center justify-center overflow-hidden">
+                    {item.image.startsWith('data:') ? <img src={item.image} className="w-full h-full object-cover" /> : <span>{item.image}</span>}
                   </div>
-                  <span className="text-white font-mono">{formatCurrency(item.price * item.qty)}</span>
+                  <div className="flex-1"><span className="text-sm text-white">{item.name}</span><span className="text-xs text-slate-500 ml-1">×{item.qty}</span></div>
+                  <span className="text-sm font-mono text-white">{formatCurrency(item.price * item.qty)}</span>
                 </div>
               ))}
             </div>
 
             {/* Tip */}
-            <div>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Driver Tip</div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Driver Tip</div>
+            <div className="flex gap-2">
+              {[0, 2, 5, 10].map((t) => (
+                <button key={t} onClick={() => setTip(t)}
+                  className={cn('flex-1 py-2.5 rounded-xl text-sm font-medium transition-all', tip === t ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-surface-800 text-slate-500 border border-white/5')}>
+                  {t === 0 ? 'None' : `$${t}`}
+                </button>
+              ))}
+            </div>
+
+            {/* Promo */}
+            {!promoApplied ? (
               <div className="flex gap-2">
-                {[0, 2, 3, 5].map((t) => (
-                  <button key={t} onClick={() => setTip(t)}
-                    className={cn('flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all', tip === t ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-surface-800 text-slate-500 border border-white/5')}>
-                    {t === 0 ? 'None' : `$${t}`}
-                  </button>
-                ))}
-                <input type="number" placeholder="Other" min={0} value={tip > 5 ? tip : ''} onChange={(e) => setTip(parseFloat(e.target.value) || 0)}
-                  className="w-20 px-3 py-2.5 bg-surface-800 border border-white/5 rounded-xl text-white text-sm text-center focus:outline-none focus:border-emerald-500/30" />
+                <input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Promo code"
+                  className="flex-1 px-4 py-2.5 bg-surface-800 border border-white/5 rounded-xl text-white text-sm font-mono uppercase placeholder-slate-600 focus:outline-none focus:border-emerald-500/30" />
+                <button onClick={applyPromo} disabled={!promoCode} className="px-4 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 text-sm font-semibold disabled:opacity-30">Apply</button>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center justify-between px-3 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+                <span className="text-sm text-emerald-400 font-mono">{promoCode.toUpperCase()} applied</span>
+                <span className="text-sm font-bold text-emerald-400">-{formatCurrency(promoDiscount)}</span>
+              </div>
+            )}
 
-            {/* Promo Code */}
-            <div>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Promo Code</div>
-              {promoApplied ? (
-                <div className="flex items-center justify-between px-4 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <BadgePercent className="w-4 h-4 text-emerald-400" />
-                    <span className="text-sm text-emerald-400 font-semibold">{promoCode.toUpperCase()}</span>
-                    <span className="text-xs text-emerald-400/60">-{formatCurrency(promoDiscount)}</span>
-                  </div>
-                  <button onClick={() => { setPromoApplied(false); setPromoDiscount(0); setPromoCode(''); }} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Enter code"
-                    className="flex-1 px-4 py-2.5 bg-surface-800 border border-white/5 rounded-xl text-white text-sm uppercase focus:outline-none focus:border-emerald-500/30" />
-                  <button onClick={applyPromo} disabled={!promoCode} className="px-4 py-2.5 rounded-xl bg-emerald-600/80 text-white text-sm font-semibold disabled:opacity-30">Apply</button>
-                </div>
-              )}
-            </div>
-
-            {/* Fee Breakdown */}
+            {/* Totals */}
             <div className="bg-surface-800 rounded-xl p-4 space-y-2">
               {[
                 ['Subtotal', cartTotal],
                 ['Delivery', deliveryFee],
-                ['Service Fee', serviceFee],
-                ['Tax', tax],
+                [`Service Fee (${db.settings.platformFeePercent}%)`, platformFee],
+                [`Tax (${(db.settings.taxRate * 100).toFixed(1)}%)`, tax],
                 ...(tip > 0 ? [['Driver Tip', tip]] : []),
-                ...(discount > 0 ? [['Discount', -discount]] : []),
+                ...(promoDiscount > 0 ? [['Discount', -promoDiscount]] : []),
               ].map(([l, v]) => (
                 <div key={l as string} className="flex justify-between text-xs">
                   <span className="text-slate-400">{l}</span>
                   <span className={cn('font-mono', (v as number) < 0 ? 'text-emerald-400' : 'text-white')}>{(v as number) < 0 ? '-' : ''}{formatCurrency(Math.abs(v as number))}</span>
                 </div>
               ))}
-              <div className="flex justify-between pt-2 border-t border-white/5 text-sm">
+              <div className="flex justify-between pt-2 border-t border-white/5">
                 <span className="font-semibold text-white">Total</span>
                 <span className="font-bold text-emerald-400 text-lg">{formatCurrency(total)}</span>
               </div>
             </div>
 
             <button onClick={() => setStep('payment')} className="w-full btn-primary bg-emerald-600 flex items-center justify-center gap-2">
-              Continue to Payment <ArrowRight className="w-4 h-4" />
+              <CreditCard className="w-4 h-4" /> Continue to Payment
             </button>
           </>
         )}
 
         {step === 'payment' && (
           <>
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Select Payment Method</div>
+            <div className="bg-surface-800 rounded-xl p-4 flex items-center justify-between mb-2">
+              <span className="text-sm text-slate-400">Total</span>
+              <span className="text-xl font-bold text-emerald-400">{formatCurrency(total)}</span>
+            </div>
 
-            {DEFAULT_METHODS.map((pm) => (
-              <button key={pm.id} onClick={() => setSelectedPayment(pm.id)}
-                className={cn('w-full flex items-center gap-3 p-4 rounded-xl border transition-all', selectedPayment === pm.id ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-surface-800/50 border-white/5 hover:border-white/10')}>
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: pm.type === 'card' ? '#3B82F620' : '#94A3B820' }}>
-                  {pm.type === 'card' ? <CreditCard className="w-5 h-5 text-blue-400" /> : <span className="text-lg">🍎</span>}
-                </div>
-                <div className="flex-1 text-left">
-                  <div className="text-sm text-white font-medium">{pm.type === 'card' ? `${pm.brand} •••• ${pm.last4}` : 'Apple Pay'}</div>
-                  {pm.expiry && <div className="text-xs text-slate-500">Expires {pm.expiry}</div>}
-                </div>
-                <div className={cn('w-5 h-5 rounded-full border-2 flex items-center justify-center', selectedPayment === pm.id ? 'border-emerald-500 bg-emerald-500' : 'border-slate-600')}>
-                  {selectedPayment === pm.id && <Check className="w-3 h-3 text-white" />}
-                </div>
-              </button>
-            ))}
-
-            {/* Add new card */}
-            <button className="w-full flex items-center gap-3 p-4 rounded-xl border border-dashed border-white/10 text-slate-500 hover:text-white hover:border-white/20 transition-all">
-              <Plus className="w-5 h-5" />
-              <span className="text-sm">Add new payment method</span>
-            </button>
-
-            {/* Total and Pay */}
-            <div className="bg-surface-800 rounded-xl p-4 flex items-center justify-between">
-              <div>
-                <div className="text-xs text-slate-500">Total</div>
-                <div className="text-xl font-bold text-white">{formatCurrency(total)}</div>
+            {payError && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span className="text-xs text-red-400">{payError}</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500"><Lock className="w-3 h-3" /> 256-bit SSL</div>
-            </div>
+            )}
 
-            <div className="flex gap-2">
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Card Details</div>
+            <StripeCardInput
+              onReady={(stripe, elements, card) => setStripeRef({ stripe, card })}
+              onError={(msg) => setPayError(msg)}
+            />
+
+            <div className="flex gap-2 mt-2">
               <button onClick={() => setStep('review')} className="px-5 py-3 rounded-2xl bg-white/5 text-slate-300 font-medium">Back</button>
-              <button onClick={processPayment} disabled={processing}
-                className="flex-1 btn-primary bg-emerald-600 flex items-center justify-center gap-2 disabled:opacity-50">
-                {processing ? (
-                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...</>
-                ) : (
-                  <>Pay {formatCurrency(total)}</>
-                )}
+              <button onClick={processPayment} disabled={!stripeRef}
+                className="flex-1 btn-primary bg-emerald-600 flex items-center justify-center gap-2 disabled:opacity-30">
+                <Lock className="w-4 h-4" /> Pay {formatCurrency(total)}
               </button>
             </div>
-
-            <p className="text-[10px] text-slate-600 text-center">By paying, you agree to FarmFresh Hub Terms of Service</p>
           </>
         )}
       </div>
@@ -243,7 +298,7 @@ export function DriverPayoutModal({ open, onClose, earnings }: { open: boolean; 
   const [processing, setProcessing] = useState(false);
   const [complete, setComplete] = useState(false);
 
-  const instantFee = earnings * 0.015; // 1.5% instant fee
+  const instantFee = earnings * 0.015;
   const payout = method === 'instant' ? earnings - instantFee : earnings;
 
   const processPayout = () => {
@@ -262,12 +317,9 @@ export function DriverPayoutModal({ open, onClose, earnings }: { open: boolean; 
     return (
       <Modal open={open} onClose={handleClose} variant="dialog" maxWidth="max-w-sm">
         <div className="p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4 animate-scale-in">
-            <DollarSign className="w-8 h-8 text-emerald-400" />
-          </div>
+          <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4 animate-scale-in"><DollarSign className="w-8 h-8 text-emerald-400" /></div>
           <h3 className="text-xl font-bold text-white mb-2">Payout Initiated!</h3>
           <p className="text-2xl font-bold text-emerald-400 mb-2">{formatCurrency(payout)}</p>
-          <p className="text-sm text-slate-400 mb-1">To Chase Bank •••• 4821</p>
           <p className="text-xs text-slate-500 mb-6">{method === 'instant' ? 'Arrives within 30 minutes' : 'Arrives in 1-3 business days'}</p>
           <button onClick={handleClose} className="w-full btn-primary bg-emerald-600">Done</button>
         </div>
@@ -283,11 +335,10 @@ export function DriverPayoutModal({ open, onClose, earnings }: { open: boolean; 
           <div className="text-3xl font-bold text-white">{formatCurrency(earnings)}</div>
         </div>
 
-        {/* Payout Method */}
         <div className="text-[10px] text-slate-500 uppercase tracking-wider">Payout Speed</div>
         {[
           { id: 'standard' as const, label: 'Standard', desc: '1-3 business days', fee: 'Free', icon: Clock },
-          { id: 'instant' as const, label: 'Instant', desc: 'Within 30 minutes', fee: `${formatCurrency(instantFee)} fee (1.5%)`, icon: Zap },
+          { id: 'instant' as const, label: 'Instant', desc: 'Within 30 minutes', fee: `${formatCurrency(instantFee)} (1.5%)`, icon: Zap },
         ].map((m) => {
           const Icon = m.icon;
           return (
@@ -306,38 +357,9 @@ export function DriverPayoutModal({ open, onClose, earnings }: { open: boolean; 
           );
         })}
 
-        {/* Bank Account */}
-        <div className="text-[10px] text-slate-500 uppercase tracking-wider">Deposit To</div>
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-surface-800 border border-white/5">
-          <Landmark className="w-5 h-5 text-blue-400" />
-          <div className="flex-1">
-            <div className="text-sm text-white font-medium">Chase Bank •••• 4821</div>
-            <div className="text-xs text-slate-500">Checking Account</div>
-          </div>
-          <span className="badge bg-emerald-500/15 text-emerald-400">Verified</span>
-        </div>
-        <button onClick={() => setShowAddBank(!showAddBank)} className="w-full text-xs text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1">
-          <Plus className="w-3 h-3" /> Add different bank account
-        </button>
-
-        {showAddBank && (
-          <div className="space-y-3 p-4 bg-surface-800/50 rounded-xl border border-white/5 animate-fade-in">
-            <input placeholder="Bank Name" className="w-full px-4 py-2.5 bg-surface-900 border border-white/5 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500/30" />
-            <input placeholder="Routing Number (9 digits)" maxLength={9} className="w-full px-4 py-2.5 bg-surface-900 border border-white/5 rounded-xl text-white text-sm font-mono focus:outline-none focus:border-blue-500/30" />
-            <input placeholder="Account Number" className="w-full px-4 py-2.5 bg-surface-900 border border-white/5 rounded-xl text-white text-sm font-mono focus:outline-none focus:border-blue-500/30" />
-            <div className="flex gap-2">
-              {['Checking', 'Savings'].map((t) => (
-                <button key={t} className="flex-1 py-2 rounded-lg bg-surface-900 text-xs text-slate-400 border border-white/5 hover:border-white/10 transition-all">{t}</button>
-              ))}
-            </div>
-            <button onClick={() => { showToast('Bank account added!'); setShowAddBank(false); }} className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold">Save Bank Account</button>
-          </div>
-        )}
-
-        {/* Payout Summary */}
         <div className="bg-surface-800 rounded-xl p-4 space-y-2">
           <div className="flex justify-between text-xs"><span className="text-slate-400">Earnings</span><span className="text-white font-mono">{formatCurrency(earnings)}</span></div>
-          {method === 'instant' && <div className="flex justify-between text-xs"><span className="text-slate-400">Instant transfer fee (1.5%)</span><span className="text-red-400 font-mono">-{formatCurrency(instantFee)}</span></div>}
+          {method === 'instant' && <div className="flex justify-between text-xs"><span className="text-slate-400">Instant fee (1.5%)</span><span className="text-red-400 font-mono">-{formatCurrency(instantFee)}</span></div>}
           <div className="flex justify-between pt-2 border-t border-white/5 text-sm">
             <span className="font-semibold text-white">You receive</span>
             <span className="font-bold text-emerald-400">{formatCurrency(payout)}</span>
@@ -348,22 +370,22 @@ export function DriverPayoutModal({ open, onClose, earnings }: { open: boolean; 
           className="w-full btn-primary bg-blue-600 flex items-center justify-center gap-2 disabled:opacity-30">
           {processing ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...</> : <>Withdraw {formatCurrency(payout)}</>}
         </button>
-        <p className="text-[10px] text-slate-600 text-center flex items-center justify-center gap-1"><Shield className="w-3 h-3" /> FDIC insured • Encrypted transfer</p>
+        <p className="text-[10px] text-slate-600 text-center flex items-center justify-center gap-1"><Shield className="w-3 h-3" /> Stripe Connect • Encrypted transfer</p>
       </div>
     </Modal>
   );
 }
 
 // ============================================================
-// FARMER SUBSCRIPTION MODAL
+// FARMER SUBSCRIPTION MODAL (Stripe)
 // ============================================================
 export function SubscriptionModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { dispatch, showToast, currentUserId } = useAppStore();
+  const { dispatch, showToast, currentUserId, authedEmail, db } = useAppStore();
   const [selectedTier, setSelectedTier] = useState<'free' | 'growth' | 'enterprise'>('growth');
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
-  const [step, setStep] = useState<'plans' | 'payment' | 'confirm'>('plans');
-  const [selectedPayment, setSelectedPayment] = useState('visa-4242');
-  const [processing, setProcessing] = useState(false);
+  const [step, setStep] = useState<'plans' | 'payment' | 'processing' | 'confirm'>('plans');
+  const [stripeRef, setStripeRef] = useState<{ stripe: Stripe; card: any } | null>(null);
+  const [payError, setPayError] = useState('');
 
   const tiers = [
     { id: 'free' as const, name: 'Starter', price: { monthly: 0, yearly: 0 }, color: '#64748B', icon: Leaf, features: ['Up to 10 products', 'Basic storefront', 'Standard listing', 'Email support', 'Basic analytics'] },
@@ -375,18 +397,44 @@ export function SubscriptionModal({ open, onClose }: { open: boolean; onClose: (
   const price = selected.price[billing];
   const savings = billing === 'yearly' ? selected.price.monthly * 12 - selected.price.yearly : 0;
 
-  const processSubscription = () => {
-    setProcessing(true);
-    setTimeout(() => {
+  const processSubscription = async () => {
+    if (selectedTier === 'free') { handleClose(); return; }
+    if (!stripeRef) { showToast('Card not ready', 'error'); return; }
+
+    setStep('processing');
+    setPayError('');
+
+    try {
+      const res = await fetch('/api/stripe/create-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: authedEmail || 'farmer@farmfresh.app',
+          plan: selectedTier,
+          interval: billing === 'yearly' ? 'year' : 'month',
+        }),
+      });
+      const { clientSecret, error: apiErr } = await res.json();
+      if (apiErr) throw new Error(apiErr);
+
+      const { error: stripeErr, paymentIntent } = await stripeRef.stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: stripeRef.card },
+      });
+
+      if (stripeErr) throw new Error(stripeErr.message);
+
       if (currentUserId) {
-        dispatch({ type: 'UPGRADE_SUBSCRIPTION', userId: currentUserId, tier: selectedTier === 'growth' ? 'premium' : selectedTier === 'enterprise' ? 'enterprise' : 'basic', billingCycle: billing });
+        dispatch({ type: 'UPGRADE_SUBSCRIPTION', userId: currentUserId, tier: selectedTier === 'growth' ? 'premium' : 'enterprise', billingCycle: billing });
       }
-      setProcessing(false);
       setStep('confirm');
-    }, 2000);
+    } catch (err: any) {
+      setPayError(err.message || 'Subscription failed');
+      setStep('payment');
+      showToast(err.message || 'Payment failed', 'error');
+    }
   };
 
-  const handleClose = () => { setStep('plans'); setProcessing(false); onClose(); };
+  const handleClose = () => { setStep('plans'); setPayError(''); onClose(); };
 
   if (step === 'confirm') {
     return (
@@ -404,12 +452,25 @@ export function SubscriptionModal({ open, onClose }: { open: boolean; onClose: (
     );
   }
 
+  if (step === 'processing') {
+    return (
+      <Modal open={open} onClose={() => {}} variant="dialog" maxWidth="max-w-sm">
+        <div className="p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
+            <div className="w-8 h-8 border-3 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-2">Setting up subscription...</h3>
+          <p className="text-sm text-slate-400">Processing via Stripe</p>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal open={open} onClose={handleClose} title={step === 'plans' ? 'Choose Your Plan' : 'Payment'}>
       <div className="p-6 space-y-4">
         {step === 'plans' && (
           <>
-            {/* Billing toggle */}
             <div className="flex items-center justify-center gap-1 bg-surface-800 rounded-xl p-1">
               {(['monthly', 'yearly'] as const).map((b) => (
                 <button key={b} onClick={() => setBilling(b)}
@@ -420,7 +481,6 @@ export function SubscriptionModal({ open, onClose }: { open: boolean; onClose: (
               ))}
             </div>
 
-            {/* Plan cards */}
             {tiers.map((tier) => {
               const Icon = tier.icon;
               const isSelected = selectedTier === tier.id;
@@ -438,12 +498,9 @@ export function SubscriptionModal({ open, onClose }: { open: boolean; onClose: (
                   </div>
                   <div className="grid grid-cols-2 gap-1">
                     {tier.features.slice(0, 4).map((f) => (
-                      <div key={f} className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <Check className="w-3 h-3 flex-shrink-0" style={{ color: tier.color }} />{f}
-                      </div>
+                      <div key={f} className="flex items-center gap-1.5 text-xs text-slate-400"><Check className="w-3 h-3 flex-shrink-0" style={{ color: tier.color }} />{f}</div>
                     ))}
                   </div>
-                  {tier.features.length > 4 && <div className="text-[10px] text-slate-500 mt-1">+ {tier.features.length - 4} more features</div>}
                   {isSelected && <div className="absolute top-4 right-4"><div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div></div>}
                 </button>
               );
@@ -459,45 +516,35 @@ export function SubscriptionModal({ open, onClose }: { open: boolean; onClose: (
         {step === 'payment' && (
           <>
             <div className="bg-surface-800 rounded-xl p-4 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-bold text-white">{selected.name} Plan</div>
-                <div className="text-xs text-slate-500">{billing === 'monthly' ? 'Billed monthly' : 'Billed annually'}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-bold text-white">{formatCurrency(price)}</div>
-                {savings > 0 && <div className="text-[10px] text-emerald-400">Save {formatCurrency(savings)}/yr</div>}
-              </div>
+              <div><div className="text-sm font-bold text-white">{selected.name} Plan</div><div className="text-xs text-slate-500">{billing === 'monthly' ? 'Billed monthly' : 'Billed annually'}</div></div>
+              <div className="text-right"><div className="text-lg font-bold text-white">{formatCurrency(price)}</div>{savings > 0 && <div className="text-[10px] text-emerald-400">Save {formatCurrency(savings)}/yr</div>}</div>
             </div>
 
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Payment Method</div>
-            {DEFAULT_METHODS.filter((m) => m.type === 'card').map((pm) => (
-              <button key={pm.id} onClick={() => setSelectedPayment(pm.id)}
-                className={cn('w-full flex items-center gap-3 p-4 rounded-xl border transition-all', selectedPayment === pm.id ? 'bg-orange-500/5 border-orange-500/20' : 'bg-surface-800/50 border-white/5')}>
-                <CreditCard className="w-5 h-5 text-blue-400" />
-                <div className="flex-1 text-left">
-                  <div className="text-sm text-white">{pm.brand} •••• {pm.last4}</div>
-                  <div className="text-xs text-slate-500">Expires {pm.expiry}</div>
-                </div>
-                <div className={cn('w-5 h-5 rounded-full border-2 flex items-center justify-center', selectedPayment === pm.id ? 'border-orange-500 bg-orange-500' : 'border-slate-600')}>
-                  {selectedPayment === pm.id && <Check className="w-3 h-3 text-white" />}
-                </div>
-              </button>
-            ))}
+            {payError && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span className="text-xs text-red-400">{payError}</span>
+              </div>
+            )}
+
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Card Details</div>
+            <StripeCardInput
+              onReady={(stripe, elements, card) => setStripeRef({ stripe, card })}
+              onError={(msg) => setPayError(msg)}
+            />
 
             <div className="text-xs text-slate-500 bg-surface-800 rounded-xl p-3">
               <p>• Your card will be charged {formatCurrency(price)} {billing === 'monthly' ? 'every month' : 'annually'}</p>
               <p>• Cancel anytime — no cancellation fees</p>
-              <p>• Prorated refund if you downgrade mid-cycle</p>
             </div>
 
             <div className="flex gap-2">
               <button onClick={() => setStep('plans')} className="px-5 py-3 rounded-2xl bg-white/5 text-slate-300 font-medium">Back</button>
-              <button onClick={processSubscription} disabled={processing}
+              <button onClick={processSubscription} disabled={!stripeRef}
                 className="flex-1 btn-primary bg-orange-600 flex items-center justify-center gap-2 disabled:opacity-50">
-                {processing ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...</> : <>Subscribe {formatCurrency(price)}</>}
+                <Lock className="w-4 h-4" /> Subscribe {formatCurrency(price)}
               </button>
             </div>
-            <p className="text-[10px] text-slate-600 text-center flex items-center justify-center gap-1"><Lock className="w-3 h-3" /> Encrypted • PCI DSS compliant</p>
           </>
         )}
       </div>

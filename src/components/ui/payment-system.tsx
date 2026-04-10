@@ -301,14 +301,30 @@ export function DriverPayoutModal({ open, onClose, earnings }: { open: boolean; 
   const instantFee = earnings * 0.015;
   const payout = method === 'instant' ? earnings - instantFee : earnings;
 
-  const processPayout = () => {
+  const processPayout = async () => {
     if (earnings <= 0 || !currentUserId) return;
     setProcessing(true);
-    setTimeout(() => {
+    try {
+      const user = useAppStore.getState().db.users.find((u) => u.id === currentUserId);
+      const res = await fetch('/api/stripe/create-payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Math.round(payout * 100),
+          email: user?.email || 'driver@farmfresh.app',
+          role: user?.role || 'driver',
+          method,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
       dispatch({ type: 'DRIVER_PAYOUT', amount: earnings, method: 'bank', driverId: currentUserId });
       setProcessing(false);
       setComplete(true);
-    }, 2000);
+    } catch (err: any) {
+      setProcessing(false);
+      showToast(err.message || 'Payout failed', 'error');
+    }
   };
 
   const handleClose = () => { setComplete(false); setProcessing(false); setMethod('standard'); onClose(); };

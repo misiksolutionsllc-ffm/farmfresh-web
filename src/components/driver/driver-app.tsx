@@ -125,6 +125,23 @@ export function DriverApp() {
                 {activeDelivery.status === 'Accepted' && <button onClick={() => { dispatch({ type: 'PICKUP_JOB', id: activeDelivery.id }); showToast('Picked up!'); }} className="btn-primary bg-blue-600 text-sm py-2.5">Confirm Pickup</button>}
                 {activeDelivery.status === 'Picked Up' && <button onClick={() => { dispatch({ type: 'COMPLETE_JOB', id: activeDelivery.id }); showToast('Delivery complete! 💰'); }} className="btn-primary bg-emerald-600 text-sm py-2.5">Complete</button>}
               </div>
+              {/* Navigate */}
+              {(activeDelivery.status === 'Accepted' || activeDelivery.status === 'Picked Up') && (() => {
+                const lat = activeDelivery.status === 'Accepted' ? 26.6620 : 26.6540;
+                const lng = activeDelivery.status === 'Accepted' ? -80.2710 : -80.2620;
+                return (
+                  <div className="flex gap-2 mt-3">
+                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`} target="_blank" rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium hover:bg-blue-500/15 active:scale-[0.97]">
+                      <MapPin className="w-3.5 h-3.5" /> Google Maps
+                    </a>
+                    <a href={`https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`} target="_blank" rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-500/10 border border-slate-500/20 text-slate-300 text-xs font-medium hover:bg-slate-500/15 active:scale-[0.97]">
+                      <Navigation className="w-3.5 h-3.5" /> Apple Maps
+                    </a>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -225,6 +242,26 @@ export function DriverApp() {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-3">
+                  {/* Navigation buttons */}
+                  {(activeDelivery.status === 'Accepted' || activeDelivery.status === 'Picked Up') && (() => {
+                    const destLat = activeDelivery.status === 'Accepted' ? 26.6620 : 26.6540;
+                    const destLng = activeDelivery.status === 'Accepted' ? -80.2710 : -80.2620;
+                    const destLabel = activeDelivery.status === 'Accepted' ? activeDelivery.pickup : activeDelivery.dropoff;
+                    return (
+                      <div className="flex gap-2 w-full mb-2">
+                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium hover:bg-blue-500/15 transition-all active:scale-[0.97]">
+                          <MapPin className="w-4 h-4" /> Google Maps
+                        </a>
+                        <a href={`https://maps.apple.com/?daddr=${destLat},${destLng}&dirflg=d`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-500/10 border border-slate-500/20 text-slate-300 text-sm font-medium hover:bg-slate-500/15 transition-all active:scale-[0.97]">
+                          <Navigation className="w-4 h-4" /> Apple Maps
+                        </a>
+                      </div>
+                    );
+                  })()}
                   {activeDelivery.status === 'Accepted' && (
                     <button onClick={() => { dispatch({ type: 'PICKUP_JOB', id: activeDelivery.id }); showToast('Picked up!'); }}
                       className="flex-1 btn-primary bg-blue-600 text-sm py-2.5">Confirm Pickup</button>

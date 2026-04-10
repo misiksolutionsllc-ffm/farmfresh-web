@@ -92,6 +92,8 @@ function FarmerOnboarding({ onComplete }: { onComplete: () => void }) {
   // Documents state
   const [stateReqs, setStateReqs] = useState<StateRequirement | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({});
+  const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   // Training state
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -422,7 +424,11 @@ function FarmerOnboarding({ onComplete }: { onComplete: () => void }) {
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">{doc.description}</p>
                       </div>
-                      <button onClick={() => { setUploadedDocs((prev) => ({ ...prev, [doc.id]: true })); showToast(`${doc.name} uploaded`); }}
+                      <button onClick={() => { 
+                        if (uploadedDocs[doc.id]) return;
+                        setUploadingDocId(doc.id); 
+                        docInputRef.current?.click(); 
+                      }}
                         className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0',
                           uploadedDocs[doc.id] ? 'text-emerald-400 bg-emerald-500/10' : 'text-orange-400 bg-orange-500/10 hover:bg-orange-500/20')}>
                         {uploadedDocs[doc.id] ? '✓ Done' : 'Upload'}
@@ -432,6 +438,23 @@ function FarmerOnboarding({ onComplete }: { onComplete: () => void }) {
                 </div>
               );
             })}
+
+            {/* Hidden file input for document uploads */}
+            <input ref={docInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && uploadingDocId) {
+                  const docName = stateReqs?.documents.find((d) => d.id === uploadingDocId)?.name || 'Document';
+                  setUploadedDocs((prev) => ({ ...prev, [uploadingDocId]: true }));
+                  showToast(`${docName} uploaded (${(file.size / 1024).toFixed(0)} KB)`);
+                  if (currentUserId) {
+                    dispatch({ type: 'UPLOAD_DOCUMENT', userId: currentUserId, document: { type: docName, date: new Date().toISOString() } });
+                  }
+                  setUploadingDocId(null);
+                }
+                e.target.value = '';
+              }}
+            />
           </div>
         )}
 

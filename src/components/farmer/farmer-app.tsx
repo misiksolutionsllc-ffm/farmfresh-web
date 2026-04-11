@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { SettingsSection } from '@/components/ui/shared-settings';
 import { SubscriptionModal, DriverPayoutModal } from '@/components/ui/payment-system';
+import { OrderChatModal } from '@/components/ui/chat-photo';
 
 // ============================================================
 // ONBOARDING STEPS
@@ -601,6 +602,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
   const [showUpdatePayment, setShowUpdatePayment] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [showOrderChat, setShowOrderChat] = useState<string | null>(null);
   const [activatingFeature, setActivatingFeature] = useState<{ name: string; price: number; period: string } | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [productPhoto, setProductPhoto] = useState<string | null>(null);
@@ -833,6 +835,12 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
                     <div className="mt-2 px-3 py-2 bg-surface-900 rounded-lg text-xs text-slate-400">
                       <MessageSquare className="w-3 h-3 inline mr-1 text-slate-500" />"{orderDetail.instructions}"
                     </div>
+                  )}
+                  {orderDetail.status !== 'Cancelled' && orderDetail.status !== 'Delivered' && (
+                    <button onClick={() => { setSelectedOrder(null); setShowOrderChat(orderDetail.id); }}
+                      className="mt-2 w-full py-2 rounded-lg bg-violet-500/10 text-violet-400 text-xs font-medium hover:bg-violet-500/15 transition-all flex items-center justify-center gap-1.5">
+                      💬 Chat with Customer
+                    </button>
                   )}
                 </div>
 
@@ -1469,6 +1477,18 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
       {/* Payment Modals */}
       <SubscriptionModal open={showSubscriptionModal} onClose={() => setShowSubscriptionModal(false)} />
       <DriverPayoutModal open={showPayoutModal} onClose={() => setShowPayoutModal(false)} earnings={totalRevenue * 0.85} />
+
+      {/* Order Chat */}
+      {showOrderChat && (() => {
+        const chatOrder = myOrders.find((o) => o.id === showOrderChat);
+        const chatCustomer = chatOrder ? db.users.find((u) => u.id === chatOrder.customerId) : null;
+        return chatOrder && chatCustomer ? (
+          <OrderChatModal open={true} onClose={() => setShowOrderChat(null)}
+            orderId={chatOrder.id}
+            otherPartyName={chatCustomer.name}
+            otherPartyRole="Customer" />
+        ) : null;
+      })()}
     </AppShell>
   );
 }

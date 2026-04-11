@@ -342,10 +342,10 @@ export function HelpSupportModal({ open, onClose }: { open: boolean; onClose: ()
       <div className="p-6 space-y-4">
         <div className="grid grid-cols-2 gap-2">
           {[
-            { icon: '💬', label: 'Live Chat', action: () => showToast('Connecting to agent...') },
-            { icon: '📧', label: 'Email Us', action: () => showToast('misiksolutionsllc@gmail.com') },
-            { icon: '📞', label: 'Call Us', action: () => showToast('1-800-FRESH-00') },
-            { icon: '📋', label: 'Report Issue', action: () => showToast('Issue report submitted') },
+            { icon: '💬', label: 'Live Chat', action: () => showToast('Connecting to support agent...') },
+            { icon: '📧', label: 'Email Us', action: () => { window.open('mailto:misiksolutionsllc@gmail.com?subject=FarmFresh Hub Support', '_blank'); } },
+            { icon: '📞', label: 'Call Us', action: () => { window.open('tel:+18003737400', '_self'); } },
+            { icon: '📋', label: 'Report Issue', action: () => { window.open('mailto:misiksolutionsllc@gmail.com?subject=FarmFresh Hub Issue Report&body=Please describe the issue:', '_blank'); showToast('Opening email client...'); } },
           ].map((c) => (
             <button key={c.label} onClick={c.action}
               className="flex items-center gap-2 p-3 rounded-xl bg-surface-800 border border-white/5 hover:border-white/10 transition-all active:scale-[0.97]">

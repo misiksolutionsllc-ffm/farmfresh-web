@@ -10,6 +10,7 @@ import {
   DietaryModal,
 } from '@/components/customer/profile-modals';
 import { SettingsSection } from '@/components/ui/shared-settings';
+import { OrderChatModal } from '@/components/ui/chat-photo';
 import { CheckoutModal } from '@/components/ui/payment-system';
 import { cn, formatCurrency, getStatusColor, formatDate, formatRelativeTime } from '@/lib/utils';
 import { Product, OrderItem } from '@/lib/store';
@@ -51,6 +52,7 @@ export function CustomerApp() {
   const [reviewingOrder, setReviewingOrder] = useState<string | null>(null);
   const [reviewStars, setReviewStars] = useState(5);
   const [reviewText, setReviewText] = useState('');
+  const [showOrderChat, setShowOrderChat] = useState<string | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
 
   const currentUser = db.users.find((u) => u.id === currentUserId);
@@ -364,10 +366,16 @@ export function CustomerApp() {
               {merchant && (
                 <div className="bg-surface-800 rounded-xl p-3 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center"><span className="text-lg">🌾</span></div>
-                  <div>
+                  <div className="flex-1">
                     <div className="text-sm font-medium text-white">{merchant.businessName || merchant.name}</div>
                     <div className="text-xs text-slate-500">Farmer American Hero</div>
                   </div>
+                  {(od.status !== 'Cancelled' && od.status !== 'Delivered') && (
+                    <button onClick={() => setShowOrderChat(od.id)}
+                      className="px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 text-xs font-medium hover:bg-violet-500/15 transition-all">
+                      💬 Chat
+                    </button>
+                  )}
                 </div>
               )}
               <div>
@@ -780,6 +788,18 @@ export function CustomerApp() {
       <PaymentModal open={!!showPayment} onClose={() => setShowPayment(null)} mode={showPayment || 'add'} />
       <DietaryModal open={showDietary} onClose={() => setShowDietary(false)} />
       <CheckoutModal open={showCheckout} onClose={() => setShowCheckout(false)} cart={cart} cartTotal={cartTotal} onPlaceOrder={(tip, promo) => { placeOrder(tip, promo); setShowCheckout(false); }} />
+
+      {/* Order Chat */}
+      {showOrderChat && (() => {
+        const chatOrder = myOrders.find((o) => o.id === showOrderChat);
+        const chatMerchant = chatOrder ? db.users.find((u) => u.id === chatOrder.merchantId) : null;
+        return chatOrder && chatMerchant ? (
+          <OrderChatModal open={true} onClose={() => setShowOrderChat(null)}
+            orderId={chatOrder.id}
+            otherPartyName={chatMerchant.businessName || chatMerchant.name}
+            otherPartyRole="Farmer" />
+        ) : null;
+      })()}
     </AppShell>
   );
 }

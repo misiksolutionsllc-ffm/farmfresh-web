@@ -8,6 +8,7 @@ import { MiniStat, BarChart, ProgressBar, Sparkline } from '@/components/ui/char
 import { LiveMap, DriverMapView } from '@/components/ui/live-map';
 import { SettingsSection } from '@/components/ui/shared-settings';
 import { DriverPayoutModal } from '@/components/ui/payment-system';
+import { OrderChatModal, DeliveryPhotoModal } from '@/components/ui/chat-photo';
 import { cn, formatCurrency, getStatusColor, formatDate } from '@/lib/utils';
 import {
   Gauge, Package, DollarSign, User, Map, Power, Navigation, Star, Zap,
@@ -43,6 +44,11 @@ export function DriverApp() {
   const [bankRouting, setBankRouting] = useState('');
   const [bankAccount, setBankAccount] = useState('');
   const [bankType, setBankType] = useState<'checking' | 'savings'>('checking');
+  const [showChat, setShowChat] = useState(false);
+  const [showPickupPhoto, setShowPickupPhoto] = useState(false);
+  const [showDeliveryPhoto, setShowDeliveryPhoto] = useState(false);
+  const [pickupPhotoTaken, setPickupPhotoTaken] = useState(false);
+  const [deliveryPhotoTaken, setDeliveryPhotoTaken] = useState(false);
   const driver = db.users.find((u) => u.id === currentUserId);
   const availableDeliveries = db.deliveries.filter((d) => d.driverId === null && d.status === 'Pending');
   const myDeliveries = db.deliveries.filter((d) => d.driverId === currentUserId);
@@ -122,7 +128,7 @@ export function DriverApp() {
               </div>
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
                 <div><span className="text-xs text-slate-500">{activeDelivery.distance}</span><span className="text-lg font-bold text-white ml-3">{formatCurrency(activeDelivery.pay)}</span></div>
-                {activeDelivery.status === 'Accepted' && <button onClick={() => { dispatch({ type: 'PICKUP_JOB', id: activeDelivery.id }); showToast('Picked up!'); }} className="btn-primary bg-blue-600 text-sm py-2.5">Confirm Pickup</button>}
+                {activeDelivery.status === 'Accepted' && <button onClick={() => setShowPickupPhoto(true)} className="btn-primary bg-blue-600 text-sm py-2.5">📷 Photo & Pickup</button>}
                 {activeDelivery.status === 'Picked Up' && <button onClick={() => { dispatch({ type: 'COMPLETE_JOB', id: activeDelivery.id }); showToast('Delivery complete! 💰'); }} className="btn-primary bg-emerald-600 text-sm py-2.5">Complete</button>}
               </div>
               {/* Navigate */}
@@ -139,6 +145,10 @@ export function DriverApp() {
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-500/10 border border-slate-500/20 text-slate-300 text-xs font-medium hover:bg-slate-500/15 active:scale-[0.97]">
                       <Navigation className="w-3.5 h-3.5" /> Apple Maps
                     </a>
+                    <button onClick={() => setShowChat(true)}
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-medium hover:bg-violet-500/15 active:scale-[0.97]">
+                      💬
+                    </button>
                   </div>
                 );
               })()}
@@ -263,12 +273,12 @@ export function DriverApp() {
                     );
                   })()}
                   {activeDelivery.status === 'Accepted' && (
-                    <button onClick={() => { dispatch({ type: 'PICKUP_JOB', id: activeDelivery.id }); showToast('Picked up!'); }}
-                      className="flex-1 btn-primary bg-blue-600 text-sm py-2.5">Confirm Pickup</button>
+                    <button onClick={() => setShowPickupPhoto(true)}
+                      className="flex-1 btn-primary bg-blue-600 text-sm py-2.5">📷 Photo & Pickup</button>
                   )}
                   {activeDelivery.status === 'Picked Up' && (
-                    <button onClick={() => { dispatch({ type: 'COMPLETE_JOB', id: activeDelivery.id }); showToast('Delivery complete! 💰'); }}
-                      className="flex-1 btn-primary bg-emerald-600 text-sm py-2.5">Complete Delivery</button>
+                    <button onClick={() => setShowDeliveryPhoto(true)}
+                      className="flex-1 btn-primary bg-emerald-600 text-sm py-2.5">📷 Photo & Complete</button>
                   )}
                 </div>
               </div>
@@ -606,6 +616,49 @@ export function DriverApp() {
 
       {/* Payout Modal */}
       <DriverPayoutModal open={showPayout} onClose={() => setShowPayout(false)} earnings={driver.earnings || 0} />
+
+      {/* Chat Modal */}
+      {activeDelivery && showChat && (() => {
+        const order = db.orders.find((o) => o.id === activeDelivery.orderId);
+        const customer = order ? db.users.find((u) => u.id === order.customerId) : null;
+        return (
+          <OrderChatModal
+            open={true}
+            onClose={() => setShowChat(false)}
+            orderId={activeDelivery.id}
+            otherPartyName={customer?.name || 'Customer'}
+            otherPartyRole="Customer"
+          />
+        );
+      })()}
+
+      {/* Pickup Photo Modal */}
+      <DeliveryPhotoModal
+        open={showPickupPhoto}
+        onClose={() => setShowPickupPhoto(false)}
+        type="pickup"
+        onCapture={(photo) => {
+          if (activeDelivery) {
+            dispatch({ type: 'PICKUP_JOB', id: activeDelivery.id });
+            setPickupPhotoTaken(true);
+            showToast('Pickup photo saved! Order picked up ✅');
+          }
+        }}
+      />
+
+      {/* Delivery Photo Modal */}
+      <DeliveryPhotoModal
+        open={showDeliveryPhoto}
+        onClose={() => setShowDeliveryPhoto(false)}
+        type="delivery"
+        onCapture={(photo) => {
+          if (activeDelivery) {
+            dispatch({ type: 'COMPLETE_JOB', id: activeDelivery.id });
+            setDeliveryPhotoTaken(true);
+            showToast('Delivery photo saved! Order complete 💰');
+          }
+        }}
+      />
     </AppShell>
   );
 }

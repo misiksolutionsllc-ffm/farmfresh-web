@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/app-store';
+import { createClient } from '@/lib/supabase/client';
 import { Modal } from '@/components/ui/modal';
 import { LEGAL_DOCUMENTS } from '@/lib/legal-documents';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -378,6 +379,14 @@ export function HelpSupportModal({ open, onClose }: { open: boolean; onClose: ()
 // ============================================================
 export function SignOutConfirmModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { signOut, showToast } = useAppStore();
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    signOut();
+    showToast('Signed out', 'info');
+    onClose();
+    window.location.reload();
+  };
   return (
     <Modal open={open} onClose={onClose} variant="dialog" maxWidth="max-w-sm">
       <div className="p-6 text-center">
@@ -388,7 +397,7 @@ export function SignOutConfirmModal({ open, onClose }: { open: boolean; onClose:
         <p className="text-sm text-slate-400 mb-6">You'll need to sign in again to access your account.</p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 px-4 py-3 rounded-2xl bg-white/5 text-slate-300 font-medium hover:bg-white/10 transition-all active:scale-[0.97]">Cancel</button>
-          <button onClick={() => { signOut(); showToast('Signed out', 'info'); onClose(); }}
+          <button onClick={handleSignOut}
             className="flex-1 px-4 py-3 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-all active:scale-[0.97]">Sign Out</button>
         </div>
       </div>

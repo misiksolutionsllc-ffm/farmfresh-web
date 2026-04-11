@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/app-store';
+import { createClient } from '@/lib/supabase/client';
 import { UserRole } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { ChevronRight, ChevronLeft, Mail, Lock, User, Eye, EyeOff, Check, ArrowRight, ShoppingCart, Truck, Wheat } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Mail, Lock, User, Eye, EyeOff, Check, ArrowRight, AlertTriangle, Loader2 } from 'lucide-react';
+
+const supabase = createClient();
 
 const slides = [
   { emoji: '🥬', title: 'Welcome to FarmFresh Hub', subtitle: 'Farm-to-table, reimagined', description: 'Connect directly with local farmers who grow clean, natural food — no GMOs, no synthetic pesticides, no artificial anything.', bg: 'from-emerald-600/10 via-transparent to-transparent' },
@@ -50,8 +53,10 @@ export function WelcomeScreen() {
 }
 
 // ============================================
-// AUTH SCREEN — role-based registration
+// AUTH SCREEN — Real Supabase Auth
 // ============================================
+const ADMIN_EMAIL = 'misiksolutionsllc@gmail.com';
+
 const roleOptions: { id: UserRole; label: string; desc: string; emoji: string; color: string }[] = [
   { id: 'customer', label: 'Consumer', desc: 'Shop fresh local produce', emoji: '🛒', color: '#059669' },
   { id: 'driver', label: 'Driver', desc: 'Deliver orders and earn', emoji: '🚗', color: '#2563EB' },
@@ -59,7 +64,7 @@ const roleOptions: { id: UserRole; label: string; desc: string; emoji: string; c
 ];
 
 export function AuthScreen() {
-  const { signUp, signIn, signInOAuth, showToast, setRole } = useAppStore();
+  const { setRole, setCurrentUserId, showToast, db } = useAppStore();
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -69,78 +74,138 @@ export function AuthScreen() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [oauthRoleStep, setOauthRoleStep] = useState(false);
-  const [oauthEmail, setOauthEmail] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState(false);
+
+  // Check if already logged in via Supabase
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) handleAuthSuccess(session.user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) handleAuthSuccess(session.user);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleAuthSuccess = async (user: any) => {
+    // Fetch profile from Supabase
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, full_name')
+      .eq('id', user.id)
+      .single();
+
+    const role = profile?.role || 'customer';
+    const mapRole: Record<string, UserRole> = { consumer: 'customer', driver: 'driver', farmer: 'farmer', admin: 'owner' };
+    const appRole = mapRole[role] || 'customer';
+
+    // Update Zustand store
+    useAppStore.setState({
+      authedEmail: user.email,
+      authedProvider: user.app_metadata?.provider || 'email',
+      authedRole: appRole,
+      role: appRole,
+    });
+
+    // Find or assign user ID in local DB
+    const dbUser = db.users.find((u) => u.role === appRole);
+    if (dbUser) {
+      setCurrentUserId(dbUser.id);
+      // Update user's name/email in local DB
+      useAppStore.getState().dispatch({
+        type: 'UPDATE_USER_PROFILE',
+        userId: dbUser.id,
+        updates: { name: profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User', email: user.email },
+      });
+    }
+  };
 
   const isValid = mode === 'login'
     ? email.includes('@') && password.length >= 6
     : name.length >= 2 && email.includes('@') && password.length >= 8 && agreed;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isValid) return;
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      let err: string | null;
+
+    try {
       if (mode === 'signup') {
-        err = signUp(email, password, name, selectedRole);
+        // Block admin signup
+        if (email.toLowerCase() === ADMIN_EMAIL) {
+          setError('This email is reserved. Please use Sign In.');
+          setLoading(false);
+          return;
+        }
+
+        const supabaseRole = selectedRole === 'customer' ? 'consumer' : selectedRole === 'farmer' ? 'farmer' : selectedRole === 'driver' ? 'driver' : 'consumer';
+
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name, role: supabaseRole },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+
+        if (signUpError) throw signUpError;
+
+        // If email confirmation is required
+        if (data.user && !data.session) {
+          setConfirmEmail(true);
+          showToast('Check your email to confirm your account!', 'info');
+        }
+        // If session exists (email confirmation disabled)
+        if (data.session) {
+          showToast('Account created!');
+        }
       } else {
-        err = signIn(email, password);
+        // Sign in
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
+        showToast('Signed in!');
       }
-      if (err) { setError(err); showToast(err, 'error'); }
-      else { showToast(mode === 'signup' ? 'Account created!' : 'Signed in!'); }
-      setLoading(false);
-    }, 1000);
+    } catch (err: any) {
+      const msg = err.message || 'Authentication failed';
+      setError(msg);
+      showToast(msg, 'error');
+    }
+    setLoading(false);
   };
 
-  const handleOAuth = (provider: 'google' | 'apple') => {
+  const handleOAuth = async (provider: 'google' | 'apple') => {
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      const email = provider === 'google' ? 'user@gmail.com' : 'user@icloud.com';
-      const result = signInOAuth(email, provider);
-      if (result === 'NEEDS_ROLE') {
-        setOauthEmail(email);
-        setOauthRoleStep(true);
-      } else if (result) {
-        setError(result); showToast(result, 'error');
-      } else {
-        showToast(`Signed in with ${provider === 'google' ? 'Google' : 'Apple'}!`);
-      }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message || `${provider} sign in failed`);
       setLoading(false);
-    }, 1200);
+    }
   };
 
-  const completeOAuthSignup = () => {
-    const err = signUp(oauthEmail, `oauth_${Date.now()}`, oauthEmail.split('@')[0], selectedRole, 'google');
-    if (err) { setError(err); showToast(err, 'error'); }
-    else { showToast('Account created!'); setOauthRoleStep(false); }
-  };
-
-  // OAuth role selection step
-  if (oauthRoleStep) {
+  // Email confirmation screen
+  if (confirmEmail) {
     return (
       <div className="min-h-dvh bg-surface-950 flex items-center justify-center">
-        <div className="w-full max-w-md mx-auto px-6 py-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-4"><span className="text-3xl">🥬</span></div>
-            <h1 className="font-display text-2xl font-bold text-white">Choose Your Role</h1>
-            <p className="text-slate-500 mt-2 text-sm">How will you use FarmFresh Hub?</p>
-          </div>
-          <div className="space-y-3 mb-6">
-            {roleOptions.map((r) => (
-              <button key={r.id} onClick={() => setSelectedRole(r.id)}
-                className={cn('w-full flex items-center gap-4 p-4 rounded-2xl border transition-all', selectedRole === r.id ? 'border-emerald-500/30 bg-emerald-500/[0.04]' : 'border-white/[0.06] hover:border-white/10')}>
-                <span className="text-3xl">{r.emoji}</span>
-                <div className="flex-1 text-left">
-                  <div className="font-semibold text-white">{r.label}</div>
-                  <div className="text-xs text-slate-500">{r.desc}</div>
-                </div>
-                {selectedRole === r.id && <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center"><Check className="w-4 h-4 text-white" /></div>}
-              </button>
-            ))}
-          </div>
-          <button onClick={completeOAuthSignup} className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-semibold hover:bg-emerald-500 active:scale-[0.98]">Continue as {roleOptions.find((r) => r.id === selectedRole)?.label}</button>
+        <div className="w-full max-w-md mx-auto px-6 py-8 text-center">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-6"><Mail className="w-10 h-10 text-emerald-400" /></div>
+          <h1 className="font-display text-2xl font-bold text-white mb-2">Check Your Email</h1>
+          <p className="text-slate-400 text-sm mb-6">We sent a confirmation link to <span className="text-emerald-400 font-medium">{email}</span></p>
+          <p className="text-xs text-slate-500 mb-8">Click the link in your email to activate your account, then come back here.</p>
+          <button onClick={() => { setConfirmEmail(false); setMode('login'); }} className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-semibold hover:bg-emerald-500">Back to Sign In</button>
+          <button onClick={async () => {
+            await supabase.auth.resend({ type: 'signup', email });
+            showToast('Confirmation email resent!');
+          }} className="w-full mt-3 py-3 text-emerald-400 text-sm font-medium hover:text-emerald-300">Resend Email</button>
         </div>
       </div>
     );
@@ -159,7 +224,7 @@ export function AuthScreen() {
           <p className="text-slate-500 mt-2 text-sm">{mode === 'login' ? 'Sign in to your account' : 'Join the farm-to-table revolution'}</p>
         </div>
 
-        {error && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400 text-center">{error}</div>}
+        {error && <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" /><span className="text-sm text-red-400">{error}</span></div>}
 
         {/* OAuth */}
         <div className="space-y-3 mb-5">
@@ -201,7 +266,9 @@ export function AuthScreen() {
             <input value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} placeholder="Email address" type="email" className="w-full pl-11 pr-4 py-3.5 bg-white/[0.03] border border-white/[0.08] rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/30" />
           </div>
           <div className="relative"><Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} placeholder={mode === 'signup' ? 'Password (min 8 chars)' : 'Password'} type={showPw ? 'text' : 'password'} className="w-full pl-11 pr-12 py-3.5 bg-white/[0.03] border border-white/[0.08] rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/30" />
+            <input value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} placeholder={mode === 'signup' ? 'Password (min 8 chars)' : 'Password'} type={showPw ? 'text' : 'password'}
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+              className="w-full pl-11 pr-12 py-3.5 bg-white/[0.03] border border-white/[0.08] rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/30" />
             <button onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">{showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
           </div>
           {mode === 'signup' && (
@@ -216,12 +283,10 @@ export function AuthScreen() {
 
         <button onClick={handleSubmit} disabled={!isValid || loading}
           className="w-full mt-5 py-4 rounded-2xl bg-emerald-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed">
-          {loading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {mode === 'login' ? 'Signing in...' : 'Creating account...'}</> : mode === 'login' ? 'Sign In' : `Create ${roleOptions.find((r) => r.id === selectedRole)?.label || ''} Account`}
+          {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {mode === 'login' ? 'Signing in...' : 'Creating account...'}</> : mode === 'login' ? 'Sign In' : `Create ${roleOptions.find((r) => r.id === selectedRole)?.label || ''} Account`}
         </button>
 
-        {mode === 'login' && (
-          <p className="text-center mt-3 text-xs text-slate-600">Admin? Use misiksolutionsllc@gmail.com</p>
-        )}
+        {mode === 'login' && <p className="text-center mt-3 text-xs text-slate-600">Admin? Use misiksolutionsllc@gmail.com</p>}
 
         <p className="text-center mt-6 text-sm text-slate-500">
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}

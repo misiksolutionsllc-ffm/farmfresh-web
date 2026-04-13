@@ -10,44 +10,73 @@ import { ChevronRight, ChevronLeft, Mail, Lock, User, Eye, EyeOff, Check, ArrowR
 const supabase = createClient();
 
 const slides = [
-  { emoji: '🥬', title: 'Welcome to FarmFresh Hub', subtitle: 'Farm-to-table, reimagined', description: 'Connect directly with local farmers who grow clean, natural food — no GMOs, no synthetic pesticides, no artificial anything.', bg: 'from-emerald-600/10 via-transparent to-transparent' },
-  { emoji: '🚗', title: 'Fresh to Your Door', subtitle: 'Fast local delivery', description: 'Our community drivers deliver straight from the farm to your table. Track your order in real-time with GPS.', bg: 'from-blue-600/10 via-transparent to-transparent' },
-  { emoji: '🌾', title: 'Support Local Heroes', subtitle: 'Empower American farmers', description: 'Every purchase supports independent Farmer American Heroes in your community. Know exactly where your food comes from.', bg: 'from-orange-600/10 via-transparent to-transparent' },
+  {
+    title: 'Welcome!',
+    desc: 'Natural products from farmers in your region.',
+    image: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=800&q=80', // eggs, tomatoes, milk basket
+  },
+  {
+    title: 'Freshness from the field to your table',
+    desc: 'Customers receive fresh products straight from fields and farms.',
+    image: 'https://images.unsplash.com/photo-1592321675774-3de57f3ee0dc?w=800&q=80', // farmer with crate
+  },
+  {
+    title: 'Support Local Farmers!',
+    desc: 'By using this application, customers support local farmers.',
+    image: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&q=80', // family farming
+  },
+  {
+    title: 'Healthy Eating — Care for Yourself and Your Loved Ones',
+    desc: 'By buying from farmers, you choose products crafted with care.',
+    image: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=800&q=80', // family dinner
+  },
+  {
+    title: 'Contribute to the Development of a Healthy Food Ecosystem',
+    desc: 'Your choice supports responsible production.',
+    image: 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&q=80', // cows barn field
+  },
 ];
 
 export function WelcomeScreen() {
   const { completeOnboarding } = useAppStore();
   const [page, setPage] = useState(0);
   const slide = slides[page];
+  const isLast = page === slides.length - 1;
 
   return (
-    <div className="min-h-dvh bg-surface-950 relative overflow-hidden flex flex-col">
-      <div className="absolute inset-0 pointer-events-none"><div className={cn('absolute inset-0 bg-gradient-to-b transition-all duration-700', slide.bg)} /></div>
-      <div className="relative z-10 flex justify-end p-6">
-        <button onClick={completeOnboarding} className="text-sm text-slate-500 hover:text-white transition-colors px-4 py-2 rounded-xl hover:bg-white/5">Skip</button>
+    <div className="min-h-dvh bg-white flex flex-col">
+      {/* Photo — top 60% */}
+      <div className="relative w-full flex-shrink-0" style={{ height: '62vh' }}>
+        {slides.map((s, i) => (
+          <img key={i} src={s.image} alt={s.title}
+            className={cn('absolute inset-0 w-full h-full object-cover transition-opacity duration-500', i === page ? 'opacity-100' : 'opacity-0')} />
+        ))}
+        {/* Gradient fade to white */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent" />
       </div>
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 pb-8">
-        <div className="text-center max-w-sm mx-auto">
-          <div className="mb-8" key={page}><span className="text-[100px] block animate-scale-in">{slide.emoji}</span></div>
-          <div className="animate-fade-in" key={`t-${page}`}>
-            <h1 className="font-display text-3xl font-bold text-white tracking-tight mb-2">{slide.title}</h1>
-            <p className="text-emerald-400 font-medium text-sm mb-4">{slide.subtitle}</p>
-            <p className="text-slate-400 text-sm leading-relaxed">{slide.description}</p>
-          </div>
+
+      {/* Content — bottom */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8 pb-8 bg-white">
+        <div className="text-center max-w-sm mx-auto" key={page}>
+          <h1 className="text-2xl font-bold text-[#6B8E23] leading-tight mb-3 animate-fade-in">{slide.title}</h1>
+          <p className="text-sm text-gray-500 leading-relaxed animate-fade-in">{slide.desc}</p>
         </div>
-        <div className="flex gap-2 mt-10">
-          {slides.map((_, i) => (<button key={i} onClick={() => setPage(i)} className={cn('h-2 rounded-full transition-all duration-300', i === page ? 'w-8 bg-emerald-400' : 'w-2 bg-white/10')} />))}
-        </div>
-        <div className="w-full max-w-sm mt-8 space-y-3">
-          {page < slides.length - 1 ? (
-            <button onClick={() => setPage(page + 1)} className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-emerald-500 active:scale-[0.98]">Next <ChevronRight className="w-5 h-5" /></button>
-          ) : (
-            <button onClick={completeOnboarding} className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-emerald-500 active:scale-[0.98]">Get Started <ArrowRight className="w-5 h-5" /></button>
-          )}
-          {page > 0 && <button onClick={() => setPage(page - 1)} className="w-full py-3 text-slate-500 text-sm flex items-center justify-center gap-1"><ChevronLeft className="w-4 h-4" /> Back</button>}
+
+        <div className="mt-8">
+          <button
+            onClick={() => isLast ? completeOnboarding() : setPage(page + 1)}
+            className="flex items-center gap-3 px-8 py-3.5 rounded-xl bg-[#6B8E23] text-white font-semibold text-base hover:bg-[#5a7a1e] active:scale-[0.97] transition-all shadow-lg shadow-[#6B8E23]/20"
+          >
+            {/* Dot indicators inside button */}
+            <span className="flex gap-1.5">
+              {slides.map((_, i) => (
+                <span key={i} className={cn('w-2 h-2 rounded-full transition-all', i === page ? 'bg-white' : 'bg-white/40')} />
+              ))}
+            </span>
+            <span>{isLast ? 'Finish' : 'Next'}</span>
+          </button>
         </div>
       </div>
-      <p className="text-center text-[10px] text-slate-700 pb-6">MISIKSOLUTIONS LLC • Wellington, Florida</p>
     </div>
   );
 }

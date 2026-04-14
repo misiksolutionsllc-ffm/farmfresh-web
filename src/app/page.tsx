@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore } from '@/lib/app-store';
-import { createClient } from '@/lib/supabase/client';
 import { WelcomeScreen, AuthScreen } from '@/components/onboarding/welcome-auth';
 import { CustomerApp } from '@/components/customer/customer-app';
 import { DriverApp } from '@/components/driver/driver-app';
@@ -10,40 +9,32 @@ import { FarmerApp } from '@/components/farmer/farmer-app';
 import { AdminApp } from '@/components/admin/admin-app';
 import { UserRole } from '@/lib/store';
 
-const supabase = createClient();
-
 export default function Home() {
   const { onboardingSeen, authedRole, role } = useAppStore();
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check Supabase session on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        // Fetch role from profiles table
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, full_name')
-          .eq('id', session.user.id)
-          .single();
+    let mounted = true;
 
-        const roleMap: Record<string, UserRole> = { consumer: 'customer', driver: 'driver', farmer: 'farmer', admin: 'owner' };
-        const appRole = roleMap[profile?.role || 'consumer'] || 'customer';
+    // Timeout — never stuck on loading more than 3s
+    const timeout = setTimeout(() => {
+      if (mounted) setChecking(false);
+    }, 3000);
+
+    async function checkAuth() {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
         
-        useAppStore.setState({
-          authedEmail: session.user.email,
-          authedRole: appRole,
-          role: appRole,
-        });
-        setAuthenticated(true);
-      }
-      setChecking(false);
-    });
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error || !session?.user) {
+          if (mounted) setChecking(false);
+          return;
+        }
 
-    // Listen for auth changes (OAuth callback, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
+        // Fetch role from profiles
         const { data: profile } = await supabase
           .from('profiles')
           .select('role, full_name')
@@ -53,22 +44,40 @@ export default function Home() {
         const roleMap: Record<string, UserRole> = { consumer: 'customer', driver: 'driver', farmer: 'farmer', admin: 'owner' };
         const appRole = roleMap[profile?.role || 'consumer'] || 'customer';
 
-        useAppStore.setState({
-          authedEmail: session.user.email,
-          authedRole: appRole,
-          role: appRole,
-        });
-        setAuthenticated(true);
-      } else {
-        useAppStore.setState({ authedEmail: null, authedRole: null, role: null });
-        setAuthenticated(false);
-      }
-    });
+        if (mounted) {
+          useAppStore.setState({
+            authedEmail: session.user.email,
+            authedRole: appRole,
+            role: appRole,
+          });
+          setAuthenticated(true);
+          setChecking(false);
+        }
 
-    return () => subscription.unsubscribe();
+        // Listen for future auth changes
+        supabase.auth.onAuthStateChange(async (_event: string, sess: any) => {
+          if (!mounted) return;
+          if (sess?.user) {
+            const { data: p } = await supabase.from('profiles').select('role').eq('id', sess.user.id).single();
+            const r = roleMap[p?.role || 'consumer'] || 'customer';
+            useAppStore.setState({ authedEmail: sess.user.email, authedRole: r, role: r });
+            setAuthenticated(true);
+          } else {
+            useAppStore.setState({ authedEmail: null, authedRole: null, role: null });
+            setAuthenticated(false);
+          }
+        });
+      } catch (err) {
+        console.error('Auth check failed:', err);
+        if (mounted) setChecking(false);
+      }
+    }
+
+    checkAuth();
+    return () => { mounted = false; clearTimeout(timeout); };
   }, []);
 
-  // Loading
+  // Loading (max 3s)
   if (checking) {
     return (
       <div className="min-h-dvh bg-surface-950 flex items-center justify-center">

@@ -13,27 +13,27 @@ const slides = [
   {
     title: 'Welcome!',
     desc: 'Natural products from farmers in your region.',
-    image: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=800&q=80', // eggs, tomatoes, milk basket
+    image: '/onboarding/slide1-welcome.png',
   },
   {
     title: 'Freshness from the field to your table',
     desc: 'Customers receive fresh products straight from fields and farms.',
-    image: 'https://images.unsplash.com/photo-1592321675774-3de57f3ee0dc?w=800&q=80', // farmer with crate
+    image: '/onboarding/slide2-freshness.png',
   },
   {
     title: 'Support Local Farmers!',
     desc: 'By using this application, customers support local farmers.',
-    image: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=800&q=80', // family farming
+    image: '/onboarding/slide3-farmers.png',
   },
   {
     title: 'Healthy Eating — Care for Yourself and Your Loved Ones',
     desc: 'By buying from farmers, you choose products crafted with care.',
-    image: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=800&q=80', // family dinner
+    image: '/onboarding/slide4-healthy.png',
   },
   {
     title: 'Contribute to the Development of a Healthy Food Ecosystem',
     desc: 'Your choice supports responsible production.',
-    image: 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&q=80', // cows barn field
+    image: '/onboarding/slide5-ecosystem.png',
   },
 ];
 
@@ -107,11 +107,11 @@ export function AuthScreen() {
 
   // Check if already logged in via Supabase
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: any) => {
       if (session?.user) handleAuthSuccess(session.user);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (session?.user) handleAuthSuccess(session.user);
     });
     return () => subscription.unsubscribe();

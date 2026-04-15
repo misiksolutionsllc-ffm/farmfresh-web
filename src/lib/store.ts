@@ -523,7 +523,7 @@ export const INITIAL_DB: Database = {
 // Storage key + version (increment to force reset)
 const STORAGE_KEY = 'farmfresh_db';
 const DB_VERSION_KEY = 'farmfresh_db_version';
-const DB_VERSION = 10; // v2 = clean launch, no seed data
+const DB_VERSION = 11; // v2 = clean launch, no seed data
 
 // Load database from storage
 export function loadDatabase(): Database {

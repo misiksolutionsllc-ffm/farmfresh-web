@@ -85,7 +85,7 @@ export function LegalDocViewer({ open, onClose }: { open: boolean; onClose: () =
   return (
     <Modal open={open} onClose={handleClose} title="Terms & Policies">
       <div className="p-6">
-        <p className="text-xs text-slate-400 mb-4">Legal documents governing your use of FarmFresh Hub, operated by MISIKSOLUTIONS LLC.</p>
+        <p className="text-xs text-slate-400 mb-4">Legal documents governing your use of EdemFarm, operated by MISIKSOLUTIONS LLC.</p>
         <div className="space-y-2">
           {LEGAL_DOCUMENTS.map((doc) => (
             <button key={doc.id} onClick={() => setActiveDoc(doc.id)}
@@ -333,7 +333,7 @@ export function HelpSupportModal({ open, onClose }: { open: boolean; onClose: ()
     { q: 'How do I track my order?', a: 'Go to Orders tab and tap any order for real-time tracking with delivery status.' },
     { q: 'How do refunds work?', a: 'Cancelled orders before preparation get full refund. After preparation, 70%. Missing/damaged items get 100% refund within 24 hours with photo evidence.' },
     { q: 'What is the Loyalty Program?', a: 'Earn tier status by spending: Bronze ($0+), Silver ($300+), Gold ($1000+). Higher tiers unlock discounts and free delivery.' },
-    { q: 'What does "natural food" mean?', a: 'All products on FarmFresh Hub must be free from GMOs, synthetic pesticides, artificial additives, growth hormones, and routine antibiotics.' },
+    { q: 'What does "natural food" mean?', a: 'All products on EdemFarm must be free from GMOs, synthetic pesticides, artificial additives, growth hormones, and routine antibiotics.' },
     { q: 'How do I contact a farmer?', a: 'After placing an order, you can communicate through the order detail page.' },
     { q: 'Is my data secure?', a: 'Yes — we use AES-256 encryption, PCI DSS-compliant payment processing, and never sell your personal data.' },
   ];
@@ -344,9 +344,9 @@ export function HelpSupportModal({ open, onClose }: { open: boolean; onClose: ()
         <div className="grid grid-cols-2 gap-2">
           {[
             { icon: '💬', label: 'Live Chat', action: () => showToast('Connecting to support agent...') },
-            { icon: '📧', label: 'Email Us', action: () => { window.open('mailto:misiksolutionsllc@gmail.com?subject=FarmFresh Hub Support', '_blank'); } },
+            { icon: '📧', label: 'Email Us', action: () => { window.open('mailto:misiksolutionsllc@gmail.com?subject=EdemFarm Support', '_blank'); } },
             { icon: '📞', label: 'Call Us', action: () => { window.open('tel:+18003737400', '_self'); } },
-            { icon: '📋', label: 'Report Issue', action: () => { window.open('mailto:misiksolutionsllc@gmail.com?subject=FarmFresh Hub Issue Report&body=Please describe the issue:', '_blank'); showToast('Opening email client...'); } },
+            { icon: '📋', label: 'Report Issue', action: () => { window.open('mailto:misiksolutionsllc@gmail.com?subject=EdemFarm Issue Report&body=Please describe the issue:', '_blank'); showToast('Opening email client...'); } },
           ].map((c) => (
             <button key={c.label} onClick={c.action}
               className="flex items-center gap-2 p-3 rounded-xl bg-surface-800 border border-white/5 hover:border-white/10 transition-all active:scale-[0.97]">
@@ -464,7 +464,7 @@ export function SettingsSection({ role, detectedState }: { role: string; detecte
         <span className="text-sm font-medium">Sign Out</span>
       </button>
 
-      <p className="text-center text-[10px] text-slate-700">FarmFresh Hub v1.0 • MISIKSOLUTIONS LLC • Wellington, FL</p>
+      <p className="text-center text-[10px] text-slate-700">EdemFarm v1.0 • MISIKSOLUTIONS LLC • Wellington, FL</p>
 
       {/* Modals */}
       <LegalDocViewer open={showLegal} onClose={() => setShowLegal(false)} />

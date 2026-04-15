@@ -476,9 +476,9 @@ export const INITIAL_DB: Database = {
     maintenanceMode: false
   },
   users: [
-    { id: 'u1', name: 'New Customer', role: 'customer', email: 'customer@farmfresh.app', phone: '', status: 'active', verified: false, favorites: [], points: 0, wallet: 0, credits: 0, referralCode: 'FRESH10', referralCount: 0, totalSpent: 0, loyaltyTier: 'Bronze' },
-    { id: 'u2', name: 'New Driver', role: 'driver', email: 'driver@farmfresh.app', phone: '', status: 'active', verified: false, rating: 0, trips: 0, earnings: 0, online: false, acceptanceRate: 0 },
-    { id: 'u3', name: 'New Farmer', role: 'farmer', email: 'farmer@farmfresh.app', phone: '', status: 'active', verified: false, rating: 0, revenue: 0 },
+    { id: 'u1', name: 'New Customer', role: 'customer', email: 'customer@edemfarm.app', phone: '', status: 'active', verified: false, favorites: [], points: 0, wallet: 0, credits: 0, referralCode: 'EDEM10', referralCount: 0, totalSpent: 0, loyaltyTier: 'Bronze' },
+    { id: 'u2', name: 'New Driver', role: 'driver', email: 'driver@edemfarm.app', phone: '', status: 'active', verified: false, rating: 0, trips: 0, earnings: 0, online: false, acceptanceRate: 0 },
+    { id: 'u3', name: 'New Farmer', role: 'farmer', email: 'farmer@edemfarm.app', phone: '', status: 'active', verified: false, rating: 0, revenue: 0 },
     { id: 'u4', name: 'Platform Admin', role: 'owner', email: 'misiksolutionsllc@gmail.com', status: 'active', verified: true }
   ],
   products: [],
@@ -486,7 +486,7 @@ export const INITIAL_DB: Database = {
   deliveries: [],
   transactions: [],
   promos: [
-    { code: 'FRESH20', discount: 0.20, type: 'percent', label: '20% Off', usedCount: 0, active: true, minOrder: 20 },
+    { code: 'EDEM20', discount: 0.20, type: 'percent', label: '20% Off', usedCount: 0, active: true, minOrder: 20 },
     { code: 'WELCOME5', discount: 5.00, type: 'flat', label: '$5 Off', usedCount: 0, active: true },
     { code: 'FREEDELIVERY', discount: 0, type: 'free_delivery', label: 'Free Delivery', usedCount: 0, active: true, minOrder: 25 },
   ],
@@ -523,7 +523,7 @@ export const INITIAL_DB: Database = {
 // Storage key + version (increment to force reset)
 const STORAGE_KEY = 'farmfresh_db';
 const DB_VERSION_KEY = 'farmfresh_db_version';
-const DB_VERSION = 2; // v2 = clean launch, no seed data
+const DB_VERSION = 10; // v2 = clean launch, no seed data
 
 // Load database from storage
 export function loadDatabase(): Database {

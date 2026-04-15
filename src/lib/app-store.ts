@@ -192,7 +192,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'farmfresh-app-state',
-      version: 6, // Force re-auth — role-based accounts required
+      version: 10, // Force re-auth — role-based accounts required
       partialize: (state) => ({
         onboardingSeen: state.onboardingSeen,
         authedEmail: state.authedEmail,

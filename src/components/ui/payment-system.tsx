@@ -311,7 +311,7 @@ export function DriverPayoutModal({ open, onClose, earnings }: { open: boolean; 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: Math.round(payout * 100),
-          email: user?.email || 'driver@farmfresh.app',
+          email: user?.email || 'driver@edemfarm.app',
           role: user?.role || 'driver',
           method,
         }),
@@ -425,7 +425,7 @@ export function SubscriptionModal({ open, onClose }: { open: boolean; onClose: (
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: authedEmail || 'farmer@farmfresh.app',
+          email: authedEmail || 'farmer@edemfarm.app',
           plan: selectedTier,
           interval: billing === 'yearly' ? 'year' : 'month',
         }),

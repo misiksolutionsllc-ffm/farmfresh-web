@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
               },
               {
                 type: 'text',
-                text: `You are a product analyzer for a farm-to-table natural food marketplace called FarmFresh Hub.
+                text: `You are a product analyzer for a farm-to-table natural food marketplace called EdemFarm.
 
 Analyze this photo and determine:
 1. What food/farm product is shown (if any)

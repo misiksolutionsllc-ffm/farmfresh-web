@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const customers = await stripe.customers.list({ email, limit: 1 });
     const customer = customers.data[0] || await stripe.customers.create({
       email,
-      metadata: { platform: 'FarmFresh Hub', role },
+      metadata: { platform: 'EdemFarm', role },
     });
 
     // Create a PaymentIntent to track the payout request
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       customer: customer.id,
       automatic_payment_methods: { enabled: true },
       metadata: {
-        platform: 'FarmFresh Hub',
+        platform: 'EdemFarm',
         type: 'payout_request',
         role,
         method, // 'instant' or 'standard'

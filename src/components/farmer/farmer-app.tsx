@@ -201,7 +201,7 @@ function FarmerOnboarding({ onComplete }: { onComplete: () => void }) {
           address: { street, city, state, zip },
         },
       });
-      showToast('Welcome to FarmFresh Hub, Farmer American Hero! 🌾🇺🇸');
+      showToast('Welcome to EdemFarm, Farmer American Hero! 🌾🇺🇸');
     }
     onComplete();
   };
@@ -559,7 +559,7 @@ function FarmerOnboarding({ onComplete }: { onComplete: () => void }) {
                 policyAccepted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600')}>
                 {policyAccepted && <Check className="w-4 h-4 text-white" />}
               </div>
-              <span className="text-sm text-white">I agree to the FarmFresh Hub Natural Food Pledge and commit to selling only clean, natural products</span>
+              <span className="text-sm text-white">I agree to the EdemFarm Natural Food Pledge and commit to selling only clean, natural products</span>
             </button>
           </div>
         )}
@@ -654,7 +654,7 @@ function FarmerDashboard({ activeTab, setActiveTab }: { activeTab: string; setAc
 
         if (!result.isFood) {
           // Not a food product — show rejection
-          setAiRejection(result.rejection || 'This does not appear to be a food product. FarmFresh Hub only accepts natural food items.');
+          setAiRejection(result.rejection || 'This does not appear to be a food product. EdemFarm only accepts natural food items.');
           showToast('Not a food product — please upload a photo of your farm product', 'error');
           setAiProcessing(false);
           return;

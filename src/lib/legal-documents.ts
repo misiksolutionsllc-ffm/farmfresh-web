@@ -8,7 +8,7 @@ export interface LegalDocument {
 
 const C = 'MISIKSOLUTIONS LLC';
 const E = 'misiksolutionsllc@gmail.com';
-const P = 'FarmFresh Hub';
+const P = 'EdemFarm';
 
 export const LEGAL_DOCUMENTS: LegalDocument[] = [
   {

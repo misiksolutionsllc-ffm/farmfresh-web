@@ -579,7 +579,7 @@ export function CustomerApp() {
                 <button onClick={() => { navigator.clipboard?.writeText(currentUser.referralCode || '').then(() => showToast('Code copied!')).catch(() => showToast('Code: ' + (currentUser.referralCode || 'N/A'), 'info')); }}
                   className="p-1 text-slate-500 hover:text-white"><Copy className="w-3.5 h-3.5" /></button>
               </div>
-              <button onClick={() => { const url = `https://farmfresh-web-pi.vercel.app/?ref=${currentUser.referralCode || ''}`; if (navigator.share) { navigator.share({ title: 'Join FarmFresh Hub!', text: 'Get $5 off your first order of natural, farm-fresh food!', url }).catch(() => {}); } else { navigator.clipboard?.writeText(url).then(() => showToast('Share link copied!')).catch(() => showToast(url, 'info')); } }} className="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-all active:scale-[0.97]">
+              <button onClick={() => { const url = `https://edemfarm.app/?ref=${currentUser.referralCode || ''}`; if (navigator.share) { navigator.share({ title: 'Join EdemFarm!', text: 'Get $5 off your first order of natural, farm-fresh food!', url }).catch(() => {}); } else { navigator.clipboard?.writeText(url).then(() => showToast('Share link copied!')).catch(() => showToast(url, 'info')); } }} className="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition-all active:scale-[0.97]">
                 <Share2 className="w-4 h-4" />
               </button>
             </div>

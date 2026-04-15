@@ -3,13 +3,13 @@ import '@/styles/globals.css';
 import { Toast } from '@/components/ui/toast';
 
 export const metadata: Metadata = {
-  title: 'FarmFresh Hub',
-  description: "Florida's premier decentralized food network",
+  title: 'EdemFarm — Farm to Table Marketplace',
+  description: 'Natural products from local farmers',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'FarmFresh',
+    title: 'EdemFarm — Farm to Table Marketplace',
   },
   icons: {
     icon: '/icons/icon-192.png',

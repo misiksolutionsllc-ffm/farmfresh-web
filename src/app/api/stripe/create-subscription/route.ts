@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const customers = await stripe.customers.list({ email, limit: 1 });
     const customer = customers.data[0] || await stripe.customers.create({
       email,
-      metadata: { platform: 'FarmFresh Hub', role: 'farmer' },
+      metadata: { platform: 'EdemFarm', role: 'farmer' },
     });
 
     // Create PaymentIntent for subscription charge
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       customer: customer.id,
       automatic_payment_methods: { enabled: true },
       metadata: {
-        platform: 'FarmFresh Hub',
+        platform: 'EdemFarm',
         type: 'subscription',
         plan,
         interval,

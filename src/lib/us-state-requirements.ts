@@ -113,7 +113,7 @@ export const TRAINING_QUIZ: QuizQuestion[] = [
   },
   {
     id: 'q3', topic: 'Natural Food Policy',
-    question: 'FarmFresh Hub ONLY allows products that are:',
+    question: 'EdemFarm ONLY allows products that are:',
     options: ['Any food products', 'Natural, non-GMO, free from synthetic pesticides & chemicals', 'Organic certified only', 'Locally grown within 10 miles'],
     correctIndex: 1,
   },
@@ -131,7 +131,7 @@ export const TRAINING_QUIZ: QuizQuestion[] = [
   },
   {
     id: 'q6', topic: 'Natural Food Policy',
-    question: 'Which product would NOT be allowed on FarmFresh Hub?',
+    question: 'Which product would NOT be allowed on EdemFarm?',
     options: ['Organic heirloom tomatoes', 'Free-range eggs', 'Conventional produce sprayed with synthetic pesticides', 'Raw local honey'],
     correctIndex: 2,
   },
@@ -139,9 +139,9 @@ export const TRAINING_QUIZ: QuizQuestion[] = [
 
 // Company policy text
 export const NATURAL_FOOD_POLICY = `
-## FarmFresh Hub Natural Food Pledge
+## EdemFarm Natural Food Pledge
 
-By joining FarmFresh Hub as a Farmer American Hero, you commit to the following standards:
+By joining EdemFarm as a Farmer American Hero, you commit to the following standards:
 
 ### Product Standards
 - **100% Natural**: All products must be naturally grown, raised, or produced
@@ -162,5 +162,5 @@ By joining FarmFresh Hub as a Farmer American Hero, you commit to the following 
 - Violations may result in temporary suspension or permanent removal
 - Three verified violations result in permanent platform ban
 
-By accepting, you acknowledge that FarmFresh Hub serves communities who trust us to deliver clean, natural food. This trust is our most valuable asset.
+By accepting, you acknowledge that EdemFarm serves communities who trust us to deliver clean, natural food. This trust is our most valuable asset.
 `;

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       amount: Math.round(amount),
       currency,
       automatic_payment_methods: { enabled: true },
-      metadata: { platform: 'FarmFresh Hub', ...metadata },
+      metadata: { platform: 'EdemFarm', ...metadata },
     });
 
     return NextResponse.json({

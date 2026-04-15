@@ -73,7 +73,7 @@ export function AppShell({
             </div>
             <div>
               <div className="font-display font-bold text-white text-lg leading-tight">
-                FarmFresh
+                EdemFarm
               </div>
               <div className="text-xs text-slate-500 uppercase tracking-wider">
                 {role === 'owner' ? 'Admin Panel' : `${role} Portal`}
@@ -209,7 +209,7 @@ export function AppShell({
               <div className="flex items-center gap-2">
                 <span className="text-xl">🥬</span>
                 <span className="font-display font-bold text-white">
-                  FarmFresh
+                  EdemFarm
                 </span>
               </div>
               <button

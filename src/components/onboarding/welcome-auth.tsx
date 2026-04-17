@@ -135,7 +135,12 @@ export function AuthScreen() {
   const handleGoogle = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } });
+      // Pass selected role as URL parameter so callback can apply it after OAuth
+      const roleParam = mode === 'signup' ? `&intendedRole=${selectedRole === 'customer' ? 'consumer' : selectedRole}` : '';
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=/${roleParam}` },
+      });
       if (error) throw error;
     } catch (err: any) { setError(err.message); setLoading(false); }
   };

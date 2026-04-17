@@ -59,32 +59,8 @@ export function OrderChatModal({ open, onClose, orderId, otherPartyName, otherPa
     };
     saveMessages([...messages, msg]);
     setInput('');
-
-    // Simulate auto-reply after 2s
-    setTimeout(() => {
-      const replies = [
-        'Got it, thanks!',
-        'On my way!',
-        'I\'ll be there in a few minutes',
-        'Order is being prepared',
-        'Thank you for the update!',
-        'Leaving now 🚗',
-        'Almost there!',
-      ];
-      const reply: ChatMessage = {
-        id: `msg_${Date.now()}_reply`,
-        senderId: 'other',
-        senderName: otherPartyName,
-        text: replies[Math.floor(Math.random() * replies.length)],
-        timestamp: new Date().toISOString(),
-        type: 'text',
-      };
-      setMessages((prev) => {
-        const updated = [...prev, reply];
-        try { localStorage.setItem(`chat_${orderId}`, JSON.stringify(updated)); } catch {}
-        return updated;
-      });
-    }, 2000 + Math.random() * 3000);
+    // NOTE: Real-time chat replies will come via Supabase Realtime subscription.
+    // In production, the other party's messages arrive through database events.
   };
 
   const sendPhoto = (file: File) => {

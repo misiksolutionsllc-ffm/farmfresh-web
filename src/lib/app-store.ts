@@ -25,6 +25,7 @@ interface AppState {
   toast: Toast | null;
   sidebarOpen: boolean;
   onboardingSeen: boolean;
+  seenRoleIntros: Record<string, boolean>;
   authedEmail: string | null;
   authedProvider: 'email' | 'google' | 'apple' | null;
   authedRole: UserRole | null;
@@ -37,6 +38,7 @@ interface AppState {
   hideToast: () => void;
   setSidebarOpen: (open: boolean) => void;
   completeOnboarding: () => void;
+  markRoleIntroSeen: (role: string) => void;
   signUp: (email: string, password: string, name: string, role: UserRole, provider?: 'email' | 'google' | 'apple') => string | null;
   signIn: (email: string, password: string) => string | null;
   signInOAuth: (email: string, provider: 'google' | 'apple') => string | null;
@@ -52,6 +54,7 @@ export const useAppStore = create<AppState>()(
       toast: null,
       sidebarOpen: false,
       onboardingSeen: false,
+      seenRoleIntros: {},
       authedEmail: null,
       authedProvider: null,
       authedRole: null,
@@ -89,6 +92,7 @@ export const useAppStore = create<AppState>()(
       hideToast: () => set({ toast: null }),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       completeOnboarding: () => set({ onboardingSeen: true }),
+      markRoleIntroSeen: (role: string) => set((state) => ({ seenRoleIntros: { ...state.seenRoleIntros, [role]: true } })),
 
       // Sign up with role
       signUp: (email, password, name, role, provider = 'email') => {
@@ -192,9 +196,10 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'farmfresh-app-state',
-      version: 13, // Force re-auth — role-based accounts required
+      version: 14, // Force re-auth — role-based accounts required
       partialize: (state) => ({
         onboardingSeen: state.onboardingSeen,
+        seenRoleIntros: state.seenRoleIntros,
         authedEmail: state.authedEmail,
         authedProvider: state.authedProvider,
         authedRole: state.authedRole,

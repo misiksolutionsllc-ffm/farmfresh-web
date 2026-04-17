@@ -12,7 +12,7 @@ import {
   ChevronRight, ChevronLeft, Shield, BookOpen, FileCheck, Sparkles,
   Upload, Image, Leaf, Award, Flag, GraduationCap, ScrollText, Globe,
   Locate, Search, X, Check, AlertTriangle, Zap, Brain, ArrowRight,
-  Megaphone, CreditCard, Landmark, Crown, Rocket, TrendingUp, Eye,
+  Megaphone, CreditCard, Landmark, Crown, Rocket, TrendingUp, Eye, EyeOff,
   Clock, Truck, MessageSquare, BadgePercent, Target, Gift, Settings,
 } from 'lucide-react';
 import { SettingsSection } from '@/components/ui/shared-settings';
@@ -20,16 +20,15 @@ import { SubscriptionModal, DriverPayoutModal } from '@/components/ui/payment-sy
 import { OrderChatModal } from '@/components/ui/chat-photo';
 
 // ============================================================
-// ONBOARDING STEPS
+// ONBOARDING — 4 Steps: Account → Store → Location → Done
 // ============================================================
-type OnboardingStep = 'auth' | 'profile' | 'documents' | 'training' | 'policy' | 'complete';
+type OnboardingStep = 'account' | 'store' | 'location' | 'done';
 
-const STEPS: { id: OnboardingStep; label: string; icon: React.ReactNode }[] = [
-  { id: 'auth', label: 'Sign Up', icon: <Mail className="w-4 h-4" /> },
-  { id: 'profile', label: 'Farm Profile', icon: <MapPin className="w-4 h-4" /> },
-  { id: 'documents', label: 'Documents', icon: <FileCheck className="w-4 h-4" /> },
-  { id: 'training', label: 'Training', icon: <GraduationCap className="w-4 h-4" /> },
-  { id: 'policy', label: 'Agreement', icon: <ScrollText className="w-4 h-4" /> },
+const STEP_META = [
+  { id: 'account' as const, label: 'Account', num: 1 },
+  { id: 'store' as const, label: 'Store', num: 2 },
+  { id: 'location' as const, label: 'Location', num: 3 },
+  { id: 'done' as const, label: 'Done', num: 4 },
 ];
 
 const navItems = [
@@ -69,525 +68,240 @@ export function FarmerApp() {
 // ONBOARDING FLOW
 // ============================================================
 function FarmerOnboarding({ onComplete }: { onComplete: () => void }) {
-  const { db, dispatch, showToast, currentUserId } = useAppStore();
-  const [step, setStep] = useState<OnboardingStep>('auth');
-  const stepIdx = STEPS.findIndex((s) => s.id === step);
+  const { db, dispatch, showToast, currentUserId, authedEmail } = useAppStore();
+  const [step, setStep] = useState<OnboardingStep>('account');
+  const stepIdx = STEP_META.findIndex((s) => s.id === step);
 
-  // Auth state
-  const [authMethod, setAuthMethod] = useState<'google' | 'email' | null>(null);
-  const [email, setEmail] = useState('');
+  // Account
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState(authedEmail || '');
   const [password, setPassword] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [showPw, setShowPw] = useState(false);
 
-  // Profile state
-  const [farmName, setFarmName] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  // Store
+  const [storeName, setStoreName] = useState('');
+  const [storeDesc, setStoreDesc] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const allCategories = ['Vegetables', 'Fruits', 'Dairy', 'Meat', 'Bakery', 'Eggs', 'Honey', 'Herbs', 'Grains', 'Other'];
+
+  // Location
   const [phone, setPhone] = useState('');
-  const [street, setStreet] = useState('');
+  const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [zip, setZip] = useState('');
-  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
-  const [locating, setLocating] = useState(false);
 
-  // Documents state
-  const [stateReqs, setStateReqs] = useState<StateRequirement | null>(null);
-  const [uploadedDocs, setUploadedDocs] = useState<Record<string, boolean>>({});
-  const [uploadingDocId, setUploadingDocId] = useState<string | null>(null);
-  const docInputRef = useRef<HTMLInputElement>(null);
-
-  // Training state
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [quizComplete, setQuizComplete] = useState(false);
-  const [quizPassed, setQuizPassed] = useState(false);
-
-  // Policy state
-  const [policyAccepted, setPolicyAccepted] = useState(false);
-
-  // Auto-detect state requirements when state changes
-  useEffect(() => {
-    if (state && state.length === 2) {
-      setStateReqs(getStateRequirements(state));
-    }
-  }, [state]);
-
-  // Simulate GPS location
-  const detectLocation = () => {
-    setLocating(true);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          // In production, reverse geocode. For demo, set Wellington FL
-          setStreet('12794 W Forest Hill Blvd');
-          setCity('Wellington');
-          setState('FL');
-          setZip('33414');
-          setLocating(false);
-          showToast('Location detected!');
-        },
-        () => {
-          // Fallback to default
-          setCity('Wellington');
-          setState('FL');
-          setZip('33414');
-          setLocating(false);
-          showToast('Using approximate location', 'info');
-        },
-        { timeout: 5000 }
-      );
-    } else {
-      setLocating(false);
-      showToast('GPS not available', 'error');
-    }
-  };
-
-  // Simulate address autocomplete
-  const handleAddressInput = (value: string) => {
-    setStreet(value);
-    if (value.length > 3) {
-      setAddressSuggestions([
-        `${value}, Wellington, FL 33414`,
-        `${value}, West Palm Beach, FL 33401`,
-        `${value}, Royal Palm Beach, FL 33411`,
-      ]);
-    } else {
-      setAddressSuggestions([]);
-    }
-  };
-
-  const selectSuggestion = (s: string) => {
-    const parts = s.split(', ');
-    setStreet(parts[0] || '');
-    setCity(parts[1] || '');
-    const stateZip = (parts[2] || '').split(' ');
-    setState(stateZip[0] || '');
-    setZip(stateZip[1] || '');
-    setAddressSuggestions([]);
-  };
-
-  // Quiz
-  const answerQuestion = (questionId: string, optionIdx: number) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: optionIdx }));
-  };
-
-  const submitQuiz = () => {
-    const correct = TRAINING_QUIZ.filter((q) => answers[q.id] === q.correctIndex).length;
-    const passed = correct >= Math.ceil(TRAINING_QUIZ.length * 0.8); // 80% to pass
-    setQuizPassed(passed);
-    setQuizComplete(true);
-    if (passed) showToast(`Passed! ${correct}/${TRAINING_QUIZ.length} correct`);
-    else showToast(`Failed — ${correct}/${TRAINING_QUIZ.length}. Need 80%.`, 'error');
-  };
-
-  const retryQuiz = () => {
-    setCurrentQuestion(0);
-    setAnswers({});
-    setQuizComplete(false);
-    setQuizPassed(false);
-  };
-
-  // Complete onboarding
-  const completeOnboarding = () => {
-    if (currentUserId) {
-      dispatch({
-        type: 'UPDATE_USER_PROFILE',
-        userId: currentUserId,
-        updates: {
-          name: `${firstName} ${lastName}`,
-          businessName: farmName,
-          phone,
-          verified: true,
-          address: { street, city, state, zip },
-        },
-      });
-      showToast('Welcome to EdemFarm, Farmer American Hero! 🌾🇺🇸');
-    }
-    onComplete();
+  const toggleCategory = (c: string) => {
+    setCategories((prev) => prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]);
   };
 
   const canProceed = () => {
     switch (step) {
-      case 'auth': return authMethod === 'google' || (email.includes('@') && password.length >= 6);
-      case 'profile': return farmName && firstName && lastName && phone && street && city && state && zip;
-      case 'documents': return stateReqs ? stateReqs.documents.filter((d) => d.required).every((d) => uploadedDocs[d.id]) : false;
-      case 'training': return quizPassed;
-      case 'policy': return policyAccepted;
-      default: return false;
+      case 'account': return fullName.length >= 2 && email.includes('@') && password.length >= 8 && password === confirmPw;
+      case 'store': return storeName.length >= 2;
+      case 'location': return phone.length >= 7 && address.length >= 3 && city.length >= 2;
+      default: return true;
     }
   };
 
-  const nextStep = () => {
-    const idx = STEPS.findIndex((s) => s.id === step);
-    if (idx < STEPS.length - 1) setStep(STEPS[idx + 1].id);
-    else completeOnboarding();
+  const goNext = () => {
+    if (step === 'done') {
+      // Complete onboarding
+      if (currentUserId) {
+        dispatch({
+          type: 'UPDATE_USER_PROFILE',
+          userId: currentUserId,
+          updates: {
+            name: fullName,
+            businessName: storeName,
+            phone,
+            verified: true,
+            address: { street: address, city, state: 'FL', zip: '' },
+          },
+        });
+        showToast('Welcome to EdemFarm! 🌾');
+      }
+      onComplete();
+      return;
+    }
+    const idx = STEP_META.findIndex((s) => s.id === step);
+    if (idx < STEP_META.length - 1) setStep(STEP_META[idx + 1].id);
   };
 
+  const goBack = () => {
+    const idx = STEP_META.findIndex((s) => s.id === step);
+    if (idx > 0) setStep(STEP_META[idx - 1].id);
+  };
+
+  // Progress percentage
+  const progress = ((stepIdx + 1) / STEP_META.length) * 100;
+
   return (
-    <div className="min-h-dvh bg-surface-950 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-white/5 bg-surface-950/80 backdrop-blur-xl sticky top-0 z-20">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
-              <span className="text-xl">🌾</span>
-            </div>
-            <div>
-              <h1 className="font-display text-lg font-bold text-white">Farmer American Hero</h1>
-              <p className="text-xs text-slate-500">Join the natural food revolution 🇺🇸</p>
-            </div>
-          </div>
-          {/* Progress */}
-          <div className="flex items-center gap-1">
-            {STEPS.map((s, i) => (
-              <div key={s.id} className="flex-1 flex items-center">
-                <div className={cn('flex-1 h-1.5 rounded-full transition-all duration-500', i <= stepIdx ? 'bg-orange-500' : 'bg-white/5')} />
+    <div style={{ minHeight: '100dvh', background: '#fff', display: 'flex', flexDirection: 'column' }}>
+      {/* Green top bar */}
+      <div style={{ background: '#2e7d32', height: 48 }} />
+
+      {/* Header: back + steps */}
+      <div style={{ padding: '16px 20px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+        {stepIdx > 0 && (
+          <button onClick={goBack} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #e0e0e0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+            <ChevronLeft style={{ width: 18, height: 18, color: '#333' }} />
+          </button>
+        )}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 16 }}>
+          {STEP_META.map((s, i) => (
+            <div key={s.id} style={{ textAlign: 'center' }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%', margin: '0 auto 4px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 600, fontFamily: 'system-ui',
+                background: i < stepIdx ? '#2e7d32' : i === stepIdx ? '#2e7d32' : '#e0e0e0',
+                color: i <= stepIdx ? '#fff' : '#999',
+              }}>
+                {i < stepIdx ? '✓' : s.num}
               </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2">
-            {STEPS.map((s, i) => (
-              <span key={s.id} className={cn('text-[10px] font-medium', i <= stepIdx ? 'text-orange-400' : 'text-slate-600')}>{s.label}</span>
-            ))}
-          </div>
+              <span style={{ fontSize: 10, color: i === stepIdx ? '#2e7d32' : '#999', fontFamily: 'system-ui', fontWeight: i === stepIdx ? 600 : 400 }}>{s.label}</span>
+            </div>
+          ))}
         </div>
-      </header>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ margin: '12px 20px 0', height: 4, background: '#e8e8e8', borderRadius: 2 }}>
+        <div style={{ height: '100%', background: 'linear-gradient(90deg, #2e7d32, #6b8c42)', borderRadius: 2, width: `${progress}%`, transition: 'width 0.3s' }} />
+      </div>
 
       {/* Content */}
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 pb-32">
-        {/* ====== AUTH STEP ====== */}
-        {step === 'auth' && (
-          <div className="space-y-6 animate-fade-in-up">
-            <div className="text-center mb-8">
-              <span className="text-5xl block mb-4 animate-float">🌾</span>
-              <h2 className="text-2xl font-display font-bold text-white">Welcome, Future Hero</h2>
-              <p className="text-slate-400 mt-2">Create your account to start selling natural food</p>
+      <div style={{ flex: 1, padding: '24px 24px 100px', overflow: 'auto' }}>
+        {step === 'account' && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <span style={{ fontSize: 48 }}>🌾</span>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: '#222', margin: '12px 0 4px', fontFamily: 'system-ui' }}>Merchant Account</h2>
+              <p style={{ fontSize: 13, color: '#888', fontFamily: 'system-ui' }}>Start selling your farm products to thousands of customers</p>
             </div>
-
-            {/* Google Sign Up */}
-            <button onClick={() => { setAuthMethod('google'); setEmail('farmer@gmail.com'); showToast('Google connected!'); }}
-              className={cn('w-full flex items-center gap-3 p-4 rounded-2xl border transition-all', authMethod === 'google' ? 'bg-white/5 border-orange-500/30' : 'bg-surface-800/50 border-white/5 hover:border-white/10')}>
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center flex-shrink-0">
-                <Globe className="w-5 h-5 text-slate-800" />
-              </div>
-              <div className="flex-1 text-left">
-                <div className="text-white font-semibold">Continue with Google</div>
-                <div className="text-xs text-slate-500">Quick and secure sign-up</div>
-              </div>
-              {authMethod === 'google' && <Check className="w-5 h-5 text-orange-400" />}
-            </button>
-
-            <div className="flex items-center gap-3"><div className="flex-1 h-px bg-white/5" /><span className="text-xs text-slate-600">or</span><div className="flex-1 h-px bg-white/5" /></div>
-
-            {/* Email */}
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-slate-500 mb-1.5 block">Email address</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setAuthMethod('email'); }}
-                    className="w-full pl-11 pr-4 py-3.5 bg-surface-800 border border-white/5 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30 transition-all"
-                    placeholder="your@email.com" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1.5 block">Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-surface-800 border border-white/5 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30 transition-all"
-                  placeholder="Min. 6 characters" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ====== PROFILE STEP ====== */}
-        {step === 'profile' && (
-          <div className="space-y-5 animate-fade-in-up">
-            <div>
-              <h2 className="text-xl font-display font-bold text-white">Farm Profile</h2>
-              <p className="text-sm text-slate-400 mt-1">Tell us about your farm</p>
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-500 mb-1.5 block">Farm Name *</label>
-              <input type="text" value={farmName} onChange={(e) => setFarmName(e.target.value)}
-                className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30"
-                placeholder="e.g., Green Acres Family Farm" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-slate-500 mb-1.5 block">First Name *</label>
-                <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30"
-                  placeholder="John" />
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1.5 block">Last Name *</label>
-                <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30"
-                  placeholder="Smith" />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-500 mb-1.5 block">Phone Number *</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30"
-                  placeholder="(555) 123-4567" />
-              </div>
-            </div>
-
-            {/* Address with GPS */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-slate-500">Farm Address (Pickup Location) *</label>
-                <button onClick={detectLocation} disabled={locating}
-                  className="flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 transition-colors">
-                  <Locate className={cn('w-3.5 h-3.5', locating && 'animate-spin')} />
-                  {locating ? 'Detecting...' : 'Use GPS'}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Field label="Full Name" value={fullName} onChange={setFullName} placeholder="John Smith" />
+              <Field label="Email" value={email} onChange={setEmail} placeholder="john@farm.com" type="email" />
+              <Field label="Password" value={password} onChange={setPassword} placeholder="Min. 8 characters" type={showPw ? 'text' : 'password'} suffix={
+                <button onClick={() => setShowPw(!showPw)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                  {showPw ? <EyeOff style={{ width: 18, height: 18, color: '#999' }} /> : <Eye style={{ width: 18, height: 18, color: '#999' }} />}
                 </button>
-              </div>
-
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input type="text" value={street} onChange={(e) => handleAddressInput(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30"
-                  placeholder="Start typing address..." />
-                {/* Autocomplete dropdown */}
-                {addressSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-surface-800 border border-white/10 rounded-xl overflow-hidden z-10 shadow-xl">
-                    {addressSuggestions.map((s) => (
-                      <button key={s} onClick={() => selectSuggestion(s)}
-                        className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-white/5 transition-colors flex items-center gap-2 border-b border-white/5 last:border-0">
-                        <MapPin className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />{s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City"
-                  className="px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30" />
-                <select value={state} onChange={(e) => setState(e.target.value)}
-                  className="px-3 py-3 bg-surface-800 border border-white/5 rounded-xl text-white focus:outline-none focus:border-orange-500/30">
-                  <option value="">State</option>
-                  {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="ZIP"
-                  className="px-4 py-3 bg-surface-800 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/30" />
-              </div>
-
-              {state && stateReqs && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/5 border border-orange-500/10">
-                  <Flag className="w-3.5 h-3.5 text-orange-400" />
-                  <span className="text-xs text-orange-400">{stateReqs.state} requirements detected — {stateReqs.documents.length} documents needed</span>
-                </div>
-              )}
+              } />
+              <Field label="Confirm Password" value={confirmPw} onChange={setConfirmPw} placeholder="Repeat password" type="password" />
             </div>
           </div>
         )}
 
-        {/* ====== DOCUMENTS STEP ====== */}
-        {step === 'documents' && stateReqs && (
-          <div className="space-y-5 animate-fade-in-up">
-            <div>
-              <h2 className="text-xl font-display font-bold text-white">Required Documents</h2>
-              <p className="text-sm text-slate-400 mt-1">Per {stateReqs.state} state regulations</p>
-              {stateReqs.specialNotes && (
-                <div className="mt-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/10 text-xs text-blue-400">
-                  <Sparkles className="w-3 h-3 inline mr-1" /> {stateReqs.specialNotes}
-                </div>
-              )}
+        {step === 'store' && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <span style={{ fontSize: 48 }}>🏪</span>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: '#222', margin: '12px 0 4px', fontFamily: 'system-ui' }}>Your Store</h2>
+              <p style={{ fontSize: 13, color: '#888', fontFamily: 'system-ui' }}>Tell customers about your farm and what you sell</p>
             </div>
-
-            {['license', 'food_safety', 'tax', 'insurance'].map((cat) => {
-              const catDocs = stateReqs.documents.filter((d) => d.category === cat);
-              if (catDocs.length === 0) return null;
-              const catLabels: Record<string, string> = { license: '📋 Licenses', food_safety: '🛡️ Food Safety', tax: '💰 Tax', insurance: '📄 Insurance' };
-              return (
-                <div key={cat}>
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{catLabels[cat]}</div>
-                  {catDocs.map((doc) => (
-                    <div key={doc.id} className={cn('flex items-center gap-3 p-4 rounded-xl border mb-2 transition-all',
-                      uploadedDocs[doc.id] ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-surface-800/50 border-white/5')}>
-                      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
-                        uploadedDocs[doc.id] ? 'bg-emerald-500/20' : 'bg-surface-800')}>
-                        {uploadedDocs[doc.id] ? <Check className="w-5 h-5 text-emerald-400" /> : <Upload className="w-5 h-5 text-slate-500" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-white flex items-center gap-1.5">
-                          {doc.name}
-                          {doc.required && <span className="text-[9px] text-red-400 font-bold">REQUIRED</span>}
-                        </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{doc.description}</p>
-                      </div>
-                      <button onClick={() => { 
-                        if (uploadedDocs[doc.id]) return;
-                        setUploadingDocId(doc.id); 
-                        docInputRef.current?.click(); 
-                      }}
-                        className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-shrink-0',
-                          uploadedDocs[doc.id] ? 'text-emerald-400 bg-emerald-500/10' : 'text-orange-400 bg-orange-500/10 hover:bg-orange-500/20')}>
-                        {uploadedDocs[doc.id] ? '✓ Done' : 'Upload'}
-                      </button>
-                    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Field label="Store Name *" value={storeName} onChange={setStoreName} placeholder="Green Valley Farm" />
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 500, color: '#333', display: 'block', marginBottom: 6, fontFamily: 'system-ui' }}>Store Description</label>
+                <textarea value={storeDesc} onChange={(e) => setStoreDesc(e.target.value)} placeholder="We grow organic vegetables and raise free-range chickens..."
+                  style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0', borderRadius: 10, fontSize: 14, fontFamily: 'system-ui', minHeight: 100, resize: 'vertical', outline: 'none', color: '#222', background: '#fafafa' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 500, color: '#333', display: 'block', marginBottom: 8, fontFamily: 'system-ui' }}>Product Categories</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {allCategories.map((c) => (
+                    <button key={c} onClick={() => toggleCategory(c)}
+                      style={{
+                        padding: '8px 16px', borderRadius: 20, fontSize: 13, fontFamily: 'system-ui', cursor: 'pointer',
+                        border: categories.includes(c) ? '2px solid #2e7d32' : '1px solid #ddd',
+                        background: categories.includes(c) ? '#e8f5e9' : '#fafafa',
+                        color: categories.includes(c) ? '#2e7d32' : '#666', fontWeight: categories.includes(c) ? 600 : 400,
+                      }}>
+                      {c}
+                    </button>
                   ))}
                 </div>
-              );
-            })}
-
-            {/* Hidden file input for document uploads */}
-            <input ref={docInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file && uploadingDocId) {
-                  const docName = stateReqs?.documents.find((d) => d.id === uploadingDocId)?.name || 'Document';
-                  setUploadedDocs((prev) => ({ ...prev, [uploadingDocId]: true }));
-                  showToast(`${docName} uploaded (${(file.size / 1024).toFixed(0)} KB)`);
-                  if (currentUserId) {
-                    dispatch({ type: 'UPLOAD_DOCUMENT', userId: currentUserId, document: { type: docName, date: new Date().toISOString() } });
-                  }
-                  setUploadingDocId(null);
-                }
-                e.target.value = '';
-              }}
-            />
+              </div>
+            </div>
           </div>
         )}
 
-        {/* ====== TRAINING STEP ====== */}
-        {step === 'training' && (
-          <div className="space-y-5 animate-fade-in-up">
-            <div>
-              <h2 className="text-xl font-display font-bold text-white">Training & Certification</h2>
-              <p className="text-sm text-slate-400 mt-1">Complete the quiz to proceed (80% required)</p>
+        {step === 'location' && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <span style={{ fontSize: 48 }}>📍</span>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: '#222', margin: '12px 0 4px', fontFamily: 'system-ui' }}>Store Location</h2>
+              <p style={{ fontSize: 13, color: '#888', fontFamily: 'system-ui' }}>Customers nearby will discover your store first</p>
             </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Field label="Phone Number" value={phone} onChange={setPhone} placeholder="+1 (555) 123-4567" type="tel" />
+              <Field label="Address" value={address} onChange={setAddress} placeholder="123 Farm Road" />
+              <Field label="City" value={city} onChange={setCity} placeholder="West Palm Beach" />
+            </div>
+          </div>
+        )}
 
-            {!quizComplete ? (
-              <>
-                {/* Progress */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-slate-500">Question {currentQuestion + 1} of {TRAINING_QUIZ.length}</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-white/5">
-                    <div className="h-full rounded-full bg-orange-500 transition-all" style={{ width: `${((currentQuestion + 1) / TRAINING_QUIZ.length) * 100}%` }} />
+        {step === 'done' && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <span style={{ fontSize: 64 }}>🎉</span>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: '#222', margin: '16px 0 8px', fontFamily: 'system-ui' }}>Store Ready!</h2>
+              <p style={{ fontSize: 13, color: '#888', fontFamily: 'system-ui' }}>Your merchant account is set up. Start adding products and receiving orders.</p>
+            </div>
+            <div style={{ background: '#fafafa', borderRadius: 14, padding: 20, border: '1px solid #eee' }}>
+              {[
+                { icon: '👤', label: 'OWNER', value: fullName },
+                { icon: '🏪', label: 'STORE', value: storeName },
+                { icon: '📍', label: 'CITY', value: city },
+                { icon: '📦', label: 'CATEGORIES', value: categories.length > 0 ? categories.slice(0, 3).join(', ') + (categories.length > 3 ? '...' : '') : 'All' },
+              ].map((item) => (
+                <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+                  <span style={{ fontSize: 20 }}>{item.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 10, color: '#999', fontWeight: 600, letterSpacing: 1, fontFamily: 'system-ui' }}>{item.label}</div>
+                    <div style={{ fontSize: 15, color: '#222', fontWeight: 500, fontFamily: 'system-ui' }}>{item.value || '—'}</div>
                   </div>
                 </div>
-
-                {TRAINING_QUIZ.map((q, qi) => qi === currentQuestion && (
-                  <div key={q.id} className="space-y-4">
-                    <div className="badge bg-purple-500/10 text-purple-400 inline-flex">{q.topic}</div>
-                    <h3 className="text-lg font-semibold text-white">{q.question}</h3>
-                    <div className="space-y-2">
-                      {q.options.map((opt, oi) => (
-                        <button key={oi} onClick={() => answerQuestion(q.id, oi)}
-                          className={cn('w-full text-left p-4 rounded-xl border transition-all',
-                            answers[q.id] === oi ? 'bg-orange-500/10 border-orange-500/30 text-white' : 'bg-surface-800/50 border-white/5 text-slate-300 hover:border-white/10')}>
-                          <span className="text-sm">{opt}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                      {currentQuestion > 0 && (
-                        <button onClick={() => setCurrentQuestion((p) => p - 1)} className="px-4 py-2.5 rounded-xl bg-white/5 text-slate-300 text-sm">
-                          <ChevronLeft className="w-4 h-4 inline mr-1" /> Back
-                        </button>
-                      )}
-                      {currentQuestion < TRAINING_QUIZ.length - 1 ? (
-                        <button onClick={() => setCurrentQuestion((p) => p + 1)} disabled={answers[q.id] === undefined}
-                          className="flex-1 px-4 py-2.5 rounded-xl bg-orange-600 text-white text-sm font-semibold disabled:opacity-30">
-                          Next <ChevronRight className="w-4 h-4 inline ml-1" />
-                        </button>
-                      ) : (
-                        <button onClick={submitQuiz} disabled={Object.keys(answers).length < TRAINING_QUIZ.length}
-                          className="flex-1 px-4 py-2.5 rounded-xl bg-orange-600 text-white text-sm font-semibold disabled:opacity-30">
-                          Submit Quiz
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div className="text-center py-8">
-                <span className="text-6xl block mb-4">{quizPassed ? '🎓' : '📚'}</span>
-                <h3 className="text-xl font-bold text-white mb-2">{quizPassed ? 'Congratulations!' : 'Not Quite'}</h3>
-                <p className="text-slate-400 text-sm mb-4">
-                  {quizPassed
-                    ? `You scored ${TRAINING_QUIZ.filter((q) => answers[q.id] === q.correctIndex).length}/${TRAINING_QUIZ.length}. You're certified!`
-                    : `You scored ${TRAINING_QUIZ.filter((q) => answers[q.id] === q.correctIndex).length}/${TRAINING_QUIZ.length}. You need 80% to pass.`}
-                </p>
-                {!quizPassed && (
-                  <button onClick={retryQuiz} className="btn-primary bg-orange-600">Retry Quiz</button>
-                )}
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )}
+      </div>
 
-        {/* ====== POLICY STEP ====== */}
-        {step === 'policy' && (
-          <div className="space-y-5 animate-fade-in-up">
-            <div>
-              <h2 className="text-xl font-display font-bold text-white">Natural Food Pledge</h2>
-              <p className="text-sm text-slate-400 mt-1">Review and accept our quality standards</p>
-            </div>
-
-            <div className="bg-surface-800/50 border border-white/5 rounded-2xl p-5 max-h-[50vh] overflow-y-auto">
-              <div className="prose prose-invert prose-sm">
-                {NATURAL_FOOD_POLICY.split('\n').map((line, i) => {
-                  if (line.startsWith('## ')) return <h2 key={i} className="text-lg font-bold text-white mt-4 mb-2">{line.replace('## ', '')}</h2>;
-                  if (line.startsWith('### ')) return <h3 key={i} className="text-sm font-bold text-orange-400 mt-3 mb-1">{line.replace('### ', '')}</h3>;
-                  if (line.startsWith('- **')) {
-                    const match = line.match(/- \*\*(.*?)\*\*: (.*)/);
-                    if (match) return <p key={i} className="text-sm text-slate-300 ml-4 mb-1"><strong className="text-white">{match[1]}</strong>: {match[2]}</p>;
-                  }
-                  if (line.startsWith('- ')) return <p key={i} className="text-sm text-slate-300 ml-4 mb-1">• {line.replace('- ', '')}</p>;
-                  if (line.trim()) return <p key={i} className="text-sm text-slate-400 mb-2">{line}</p>;
-                  return null;
-                })}
-              </div>
-            </div>
-
-            <button onClick={() => setPolicyAccepted(!policyAccepted)}
-              className={cn('w-full flex items-center gap-3 p-4 rounded-2xl border transition-all',
-                policyAccepted ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-surface-800/50 border-white/5')}>
-              <div className={cn('w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all',
-                policyAccepted ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600')}>
-                {policyAccepted && <Check className="w-4 h-4 text-white" />}
-              </div>
-              <span className="text-sm text-white">I agree to the EdemFarm Natural Food Pledge and commit to selling only clean, natural products</span>
-            </button>
-          </div>
+      {/* Bottom button */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 20px 28px', background: '#fff', borderTop: '1px solid #f0f0f0' }}>
+        <button onClick={goNext} disabled={step !== 'done' && !canProceed()}
+          style={{
+            width: '100%', padding: '16px 0', borderRadius: 14, fontSize: 16, fontWeight: 600, fontFamily: 'system-ui',
+            background: (step === 'done' || canProceed()) ? '#6b8c42' : '#ccc', color: '#fff', border: 'none', cursor: 'pointer',
+          }}>
+          {step === 'done' ? 'Open My Store 🏪' : 'Continue →'}
+        </button>
+        {step === 'account' && (
+          <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: '#999', fontFamily: 'system-ui' }}>
+            Already have an account? <button onClick={() => {}} style={{ color: '#2e7d32', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'system-ui' }}>Sign In</button>
+          </p>
         )}
-      </main>
-
-      {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-surface-950/90 backdrop-blur-xl border-t border-white/5 p-4 safe-bottom z-20">
-        <div className="max-w-2xl mx-auto flex gap-3">
-          {stepIdx > 0 && (
-            <button onClick={() => setStep(STEPS[stepIdx - 1].id)}
-              className="px-5 py-3 rounded-2xl bg-white/5 text-slate-300 font-medium">
-              <ChevronLeft className="w-4 h-4 inline mr-1" /> Back
-            </button>
-          )}
-          <button onClick={nextStep} disabled={!canProceed()}
-            className="flex-1 btn-primary bg-orange-600 flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed">
-            {stepIdx === STEPS.length - 1 ? (
-              <><Award className="w-4 h-4" /> Complete Registration</>
-            ) : (
-              <>Continue <ArrowRight className="w-4 h-4" /></>
-            )}
-          </button>
-        </div>
       </div>
     </div>
   );
 }
 
+// Reusable form field
+function Field({ label, value, onChange, placeholder, type = 'text', suffix }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string; suffix?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label style={{ fontSize: 13, fontWeight: 500, color: '#333', display: 'block', marginBottom: 6, fontFamily: 'system-ui' }}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type}
+          style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0', borderRadius: 10, fontSize: 14, fontFamily: 'system-ui', outline: 'none', color: '#222', background: '#fafafa' }} />
+        {suffix && <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>{suffix}</div>}
+      </div>
+    </div>
+  );
+}
 // ============================================================
 // FARMER DASHBOARD (post-onboarding)
 // ============================================================
